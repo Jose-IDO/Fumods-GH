@@ -3,6 +3,18 @@ import { useAuth } from '../../contexts/AuthContext';
 import styles from './Settings.module.css';
 import { API_URL } from '../../config/api';
 
+const DEFAULT_FAQS = [
+  { question: 'What time is check-in and check-out?', answer: 'Check-in starts at 2:00 PM and check-out is before 10:00 AM.' },
+  { question: 'Is the swimming pool heated?', answer: 'The pool is heated in winter when temperatures are low.' },
+  { question: 'Is parking available?', answer: 'Yes, secure on-site parking is available for guests.' },
+  { question: 'Is breakfast included in the price?', answer: 'Please confirm breakfast availability when making your booking.' },
+  { question: 'Do you offer airport shuttle service?', answer: 'Please contact us in advance to arrange transport.' },
+  { question: 'Are pets allowed at the hotel?', answer: 'Registered service animals are welcome; please contact us about other pets.' },
+  { question: 'Is WiFi available throughout the hotel?', answer: 'Yes, complimentary WiFi is available for guests.' },
+  { question: 'Do you offer room service?', answer: 'Please contact reception for available guest services.' },
+  { question: 'Can I cancel or modify my reservation?', answer: 'Please contact us as early as possible for assistance with changes.' },
+];
+
 export const Settings: React.FC = () => {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -14,7 +26,7 @@ export const Settings: React.FC = () => {
     tagline: '',
     description: '',
     email: '',
-    phone: '',
+    phone: '084 229 8842 / 084 451 0707',
     website: '',
     addressLine1: '',
     addressLine2: '',
@@ -25,9 +37,8 @@ export const Settings: React.FC = () => {
     checkInTime: '14:00',
     checkOutTime: '11:00',
     currency: 'ZAR',
-    taxRate: 15,
-    cancellationPolicy: '',
     termsAndConditions: '',
+    faqs: [] as Array<{ question: string; answer: string }>,
   });
 
   useEffect(() => {
@@ -45,14 +56,14 @@ export const Settings: React.FC = () => {
       
       const s = data.data;
       setForm({
-        hotelName: s.hotelName || '',
+        hotelName: !s.hotelName || /delta hotel/i.test(s.hotelName) ? 'Fumods Guesthouse' : s.hotelName,
         tagline: s.tagline || '',
         description: s.description || '',
         email: s.email || '',
-        phone: s.phone || '',
+        phone: !s.phone || /12 345 6789/.test(s.phone) ? '084 229 8842 / 084 451 0707' : s.phone,
         website: s.website || '',
-        addressLine1: s.addressLine1 || '',
-        addressLine2: s.addressLine2 || '',
+        addressLine1: !s.addressLine1 || /mark shuttleworth/i.test(s.addressLine1) ? 'Fumods Guesthouse' : s.addressLine1,
+        addressLine2: /lynwood/i.test(s.addressLine2 || '') ? '' : (s.addressLine2 || ''),
         city: s.city || '',
         stateProvince: s.stateProvince || '',
         postalCode: s.postalCode || '',
@@ -60,9 +71,8 @@ export const Settings: React.FC = () => {
         checkInTime: s.checkInTime || '14:00',
         checkOutTime: s.checkOutTime || '11:00',
         currency: s.currency || 'ZAR',
-        taxRate: s.taxRate || 15,
-        cancellationPolicy: s.cancellationPolicy || '',
         termsAndConditions: s.termsAndConditions || '',
+        faqs: Array.isArray(s.faqs) ? s.faqs : DEFAULT_FAQS,
       });
     } catch (e: any) {
       setError(e.message || 'Failed to load settings');
@@ -73,7 +83,7 @@ export const Settings: React.FC = () => {
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setForm(f => ({ ...f, [name]: name === 'taxRate' ? Number(value) : value }));
+    setForm(f => ({ ...f, [name]: value }));
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -118,11 +128,29 @@ export const Settings: React.FC = () => {
       {!loading && (
         <form id="settingsForm" className={styles.form} onSubmit={onSubmit}>
           <section className={styles.section}>
+            <h3 className={styles.subtitle}>Frequently Asked Questions</h3>
+            {form.faqs.map((faq, index) => (
+              <div className={styles.grid} key={index} style={{ marginBottom: 12 }}>
+                <div className={styles.formGroup}>
+                  <label>Question</label>
+                  <input value={faq.question} onChange={(e) => setForm(f => ({ ...f, faqs: f.faqs.map((item, i) => i === index ? { ...item, question: e.target.value } : item) }))} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>Answer</label>
+                  <textarea rows={2} value={faq.answer} onChange={(e) => setForm(f => ({ ...f, faqs: f.faqs.map((item, i) => i === index ? { ...item, answer: e.target.value } : item) }))} />
+                </div>
+                <button className={styles.cancelBtn} type="button" onClick={() => setForm(f => ({ ...f, faqs: f.faqs.filter((_, i) => i !== index) }))}>Remove</button>
+              </div>
+            ))}
+            <button className={styles.cancelBtn} type="button" onClick={() => setForm(f => ({ ...f, faqs: [...f.faqs, { question: '', answer: '' }] }))}>+ Add FAQ</button>
+          </section>
+
+          <section className={styles.section}>
             <h3 className={styles.subtitle}>Basic Information</h3>
             <div className={styles.grid}>
               <div className={styles.formGroup}>
                 <label>Hotel Name *</label>
-                <input name="hotelName" value={form.hotelName} onChange={onChange} placeholder="Delta Hotel" required />
+                <input name="hotelName" value={form.hotelName} onChange={onChange} placeholder="Fumods Guesthouse" required />
               </div>
               <div className={styles.formGroup}>
                 <label>Tagline</label>
@@ -140,7 +168,7 @@ export const Settings: React.FC = () => {
             <div className={styles.grid}>
               <div className={styles.formGroup}>
                 <label>Email</label>
-                <input type="email" name="email" value={form.email} onChange={onChange} placeholder="info@deltahotel.com" />
+                <input type="email" name="email" value={form.email} onChange={onChange} placeholder="info@fumodsguesthouse.com" />
               </div>
               <div className={styles.formGroup}>
                 <label>Phone</label>
@@ -148,7 +176,7 @@ export const Settings: React.FC = () => {
               </div>
               <div className={styles.formGroup}>
                 <label>Website</label>
-                <input type="url" name="website" value={form.website} onChange={onChange} placeholder="https://www.deltahotel.com" />
+                <input type="url" name="website" value={form.website} onChange={onChange} placeholder="https://www.fumodsguesthouse.com" />
               </div>
             </div>
           </section>
@@ -158,11 +186,11 @@ export const Settings: React.FC = () => {
             <div className={styles.grid}>
               <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
                 <label>Address Line 1</label>
-                <input name="addressLine1" value={form.addressLine1} onChange={onChange} placeholder="1 Mark Shuttleworth Street" />
+                <input name="addressLine1" value={form.addressLine1} onChange={onChange} placeholder="Fumods Guesthouse" />
               </div>
               <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
                 <label>Address Line 2</label>
-                <input name="addressLine2" value={form.addressLine2} onChange={onChange} placeholder="Lynwood" />
+                <input name="addressLine2" value={form.addressLine2} onChange={onChange} placeholder="Location details" />
               </div>
               <div className={styles.formGroup}>
                 <label>City</label>
@@ -184,7 +212,7 @@ export const Settings: React.FC = () => {
           </section>
 
           <section className={styles.section}>
-            <h3 className={styles.subtitle}>Operational Settings</h3>
+            <h3 className={styles.subtitle}>Stay Details</h3>
             <div className={styles.grid}>
               <div className={styles.formGroup}>
                 <label>Check-in Time</label>
@@ -203,20 +231,12 @@ export const Settings: React.FC = () => {
                   <option value="GBP">GBP (British Pound)</option>
                 </select>
               </div>
-              <div className={styles.formGroup}>
-                <label>Tax Rate (%)</label>
-                <input type="number" name="taxRate" min={0} max={100} step="0.01" value={form.taxRate} onChange={onChange} />
-              </div>
             </div>
           </section>
 
           <section className={styles.section}>
-            <h3 className={styles.subtitle}>Policies</h3>
+            <h3 className={styles.subtitle}>Terms and Conditions</h3>
             <div className={styles.grid}>
-              <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
-                <label>Cancellation Policy</label>
-                <textarea name="cancellationPolicy" rows={4} value={form.cancellationPolicy} onChange={onChange} placeholder="Describe your cancellation terms..." />
-              </div>
               <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
                 <label>Terms and Conditions</label>
                 <textarea name="termsAndConditions" rows={12} value={form.termsAndConditions} onChange={onChange} placeholder="Enter your hotel's complete terms and conditions here. This will be displayed to users when they click 'Terms & Conditions' in the footer." />

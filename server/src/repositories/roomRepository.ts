@@ -1,223 +1,132 @@
-import pool from '../config/db';
+import { firestore, admin } from '../config/firebaseAdmin';
 import { Room, RoomPayload } from '../types/room.types';
 
-function rowToRoom(row: any): Room {
+const roomsCollection = firestore.collection('rooms');
+
+function documentToRoom(doc: admin.firestore.DocumentSnapshot): Room | null {
+  if (!doc.exists) return null;
+  const data = doc.data() as any;
   return {
-    id: row.id,
-    roomName: row.room_name,
-    roomType: row.room_type,
-    price: Number(row.price),
-    maxGuests: row.max_guests,
-    bedType: row.bed_type,
-    numberOfBeds: row.number_of_beds,
-    roomSizeSqm: Number(row.room_size_sqm),
-    amenities: row.amenities || [],
-    units: row.units || [],
-    status: row.status || 'active',
-    images: row.images || []
+    id: doc.id,
+    roomName: data.roomName,
+    roomType: data.roomType,
+    price: Number(data.price),
+    maxGuests: data.maxGuests,
+    bedType: data.bedType,
+    numberOfBeds: data.numberOfBeds,
+    roomSizeSqm: Number(data.roomSizeSqm),
+    amenities: data.amenities || [],
+    units: data.units || [],
+    status: data.status || 'active',
+    images: data.images || [],
   };
 }
 
 class RoomRepository {
   async findAll(status?: 'active' | 'archived'): Promise<Room[]> {
-    // Check if status column exists before filtering
-    let statusFilter = '';
-    let useStatusFilter = false;
-    
+    let query: admin.firestore.Query = roomsCollection.orderBy('createdAt', 'desc');
     if (status) {
-      try {
-        // Check if status column exists
-        const checkColumn = await pool.query(`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'rooms' AND column_name = 'status'
-        `);
-        
-        if (checkColumn.rows.length > 0) {
-          statusFilter = `WHERE r.status = $1`;
-          useStatusFilter = true;
-        }
-      } catch (err) {
-        // If check fails, just proceed without status filter
-        console.warn('Could not check for status column, proceeding without filter');
-      }
+      query = query.where('status', '==', status);
     }
-    
-    const sql = `
-      SELECT r.*,
-             COALESCE(
-               JSON_AGG(
-                 JSON_BUILD_OBJECT('unitNumber', ru.unit_number)
-               ) FILTER (WHERE ru.id IS NOT NULL),
-               '[]'
-             ) AS units
-      FROM rooms r
-      LEFT JOIN room_units ru ON ru.room_id = r.id
-      ${statusFilter}
-      GROUP BY r.id
-      ORDER BY r.created_at DESC;
-    `;
-    
-    const { rows } = useStatusFilter
-      ? await pool.query(sql, [status])
-      : await pool.query(sql);
-    return rows.map(rowToRoom);
+
+    const snapshot = await query.get();
+    return snapshot.docs.map(documentToRoom).filter((room): room is Room => room !== null);
   }
 
-  async findById(id: string): Promise<Room | undefined> {
-    const sql = `
-      SELECT r.*,
-             COALESCE(
-               JSON_AGG(
-                 JSON_BUILD_OBJECT('unitNumber', ru.unit_number)
-               ) FILTER (WHERE ru.id IS NOT NULL),
-               '[]'
-             ) AS units
-      FROM rooms r
-      LEFT JOIN room_units ru ON ru.room_id = r.id
-      WHERE r.id = $1
-      GROUP BY r.id;
-    `;
-    const { rows } = await pool.query(sql, [id]);
-    return rows[0] ? rowToRoom(rows[0]) : undefined;
+  async findById(id: string): Promise<Room | null> {
+    const doc = await roomsCollection.doc(id).get();
+    return documentToRoom(doc);
   }
 
   async create(payload: RoomPayload): Promise<Room> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
+    const now = admin.firestore.Timestamp.now();
+    const data = {
+      roomName: payload.roomName,
+      roomType: payload.roomType,
+      price: payload.price,
+      maxGuests: payload.maxGuests ?? 1,
+      bedType: payload.bedType ?? 'unknown',
+      numberOfBeds: payload.numberOfBeds ?? 1,
+      roomSizeSqm: payload.roomSizeSqm ?? 0,
+      amenities: payload.amenities ?? [],
+      units: payload.units ?? [],
+      status: 'active',
+      images: [],
+      createdAt: now,
+      updatedAt: now,
+    };
 
-      const insertRoom = `
-        INSERT INTO rooms
-          (room_name, room_type, price, max_guests, bed_type, number_of_beds, room_size_sqm, amenities)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-        RETURNING *;
-      `;
-      const roomValues = [
-        payload.roomName,
-        payload.roomType,
-        payload.price,
-        payload.maxGuests || 1,
-        payload.bedType || 'unknown',
-        payload.numberOfBeds || 1,
-        payload.roomSizeSqm || 0,
-        (payload.amenities || []) as any
-      ];
-      const roomRes = await client.query(insertRoom, roomValues);
-      const roomRow = roomRes.rows[0];
-
-      if (payload.units?.length) {
-        const insertUnits = `
-          INSERT INTO room_units (room_id, unit_number)
-          SELECT $1, x.unit_number FROM JSON_TO_RECORDSET($2::json) AS x(unit_number TEXT);
-        `;
-        const unitsJson = JSON.stringify(
-          payload.units.map(u => ({ unit_number: u.unitNumber }))
-        );
-        await client.query(insertUnits, [roomRow.id, unitsJson]);
-      }
-
-      await client.query('COMMIT');
-      return (await this.findById(roomRow.id)) as Room;
-    } catch (e) {
-      await pool.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+    const docRef = await roomsCollection.add(data);
+    const snapshot = await docRef.get();
+    return documentToRoom(snapshot)!;
   }
 
   async update(id: string, updates: Partial<RoomPayload>): Promise<Room | null> {
-    const fields: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
-
-    const map: Record<string, any> = {
-      room_name: updates.roomName,
-      room_type: updates.roomType,
-      price: updates.price,
-      max_guests: updates.maxGuests,
-      bed_type: updates.bedType,
-      number_of_beds: updates.numberOfBeds,
-      room_size_sqm: updates.roomSizeSqm,
-      amenities: updates.amenities
+    const payload: any = {
+      updatedAt: admin.firestore.Timestamp.now(),
     };
 
-    for (const [col, val] of Object.entries(map)) {
-      if (val !== undefined) {
-        fields.push(`${col} = $${idx++}`);
-        values.push(col === 'price' || col === 'room_size_sqm' ? Number(val) : val);
-      }
+    if (updates.roomName !== undefined) payload.roomName = updates.roomName;
+    if (updates.roomType !== undefined) payload.roomType = updates.roomType;
+    if (updates.price !== undefined) payload.price = Number(updates.price);
+    if (updates.maxGuests !== undefined) payload.maxGuests = updates.maxGuests;
+    if (updates.bedType !== undefined) payload.bedType = updates.bedType;
+    if (updates.numberOfBeds !== undefined) payload.numberOfBeds = updates.numberOfBeds;
+    if (updates.roomSizeSqm !== undefined) payload.roomSizeSqm = Number(updates.roomSizeSqm);
+    if (updates.amenities !== undefined) payload.amenities = updates.amenities;
+    if (updates.units !== undefined) payload.units = updates.units;
+
+    if (Object.keys(payload).length === 1) {
+      return this.findById(id);
     }
 
-    if (!fields.length) {
-      const existing = await this.findById(id);
-      return existing ?? null;
-    }
-
-    const sql = `UPDATE rooms SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *;`;
-    values.push(id);
-    const { rows } = await pool.query(sql, values);
-    if (!rows[0]) return null;
-    return (await this.findById(id)) as Room;
+    await roomsCollection.doc(id).update(payload);
+    return this.findById(id);
   }
 
   async delete(id: string): Promise<boolean> {
-    const { rowCount } = await pool.query('DELETE FROM rooms WHERE id = $1;', [id]);
-    return (rowCount ?? 0) > 0;
+    await roomsCollection.doc(id).delete();
+    return true;
   }
 
   async archive(id: string): Promise<Room | null> {
-    const { rows } = await pool.query(
-      'UPDATE rooms SET status = $1 WHERE id = $2 RETURNING *;',
-      ['archived', id]
-    );
-    if (!rows[0]) return null;
-    return (await this.findById(id)) as Room;
+    await roomsCollection.doc(id).update({
+      status: 'archived',
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    return this.findById(id);
   }
 
   async restore(id: string): Promise<Room | null> {
-    const { rows } = await pool.query(
-      'UPDATE rooms SET status = $1 WHERE id = $2 RETURNING *;',
-      ['active', id]
-    );
-    if (!rows[0]) return null;
-    return (await this.findById(id)) as Room;
+    await roomsCollection.doc(id).update({
+      status: 'active',
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    return this.findById(id);
   }
 
-  // Image management methods
   async updateImages(roomId: string, images: string[]): Promise<Room | null> {
-    const { rows } = await pool.query(
-      `UPDATE rooms 
-       SET images = $1
-       WHERE id = $2
-       RETURNING *`,
-      [images, roomId]
-    );
-    return rows[0] ? rowToRoom(rows[0]) : null;
+    await roomsCollection.doc(roomId).update({
+      images,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    return this.findById(roomId);
   }
 
   async addImages(roomId: string, imagePaths: string[]): Promise<Room | null> {
-    // Append multiple images to the existing array
-    const { rows } = await pool.query(
-      `UPDATE rooms 
-       SET images = images || $1::text[]
-       WHERE id = $2
-       RETURNING *`,
-      [imagePaths, roomId]
-    );
-    return rows[0] ? rowToRoom(rows[0]) : null;
+    await roomsCollection.doc(roomId).update({
+      images: admin.firestore.FieldValue.arrayUnion(...imagePaths),
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    return this.findById(roomId);
   }
 
   async removeImage(roomId: string, imagePath: string): Promise<Room | null> {
-    const { rows } = await pool.query(
-      `UPDATE rooms 
-       SET images = array_remove(images, $1)
-       WHERE id = $2
-       RETURNING *`,
-      [imagePath, roomId]
-    );
-    return rows[0] ? rowToRoom(rows[0]) : null;
+    await roomsCollection.doc(roomId).update({
+      images: admin.firestore.FieldValue.arrayRemove(imagePath),
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    return this.findById(roomId);
   }
 }
 

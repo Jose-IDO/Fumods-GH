@@ -1,86 +1,74 @@
-import pool from "../config/db";
+import { firestore, admin } from '../config/firebaseAdmin';
+import { EventInput } from '../types/event';
 
+const eventsCollection = firestore.collection('events');
 
-interface EventInput {
+interface EventDocument {
   title: string;
   date: string;
   description: string;
   imageUrl?: string;
+  createdAt: admin.firestore.Timestamp;
+  updatedAt: admin.firestore.Timestamp;
 }
 
-interface EventUpdate {
-  title?: string;
-  date?: string;
-  description?: string;
-  imageUrl?: string;
-}
+function documentToEvent(doc: admin.firestore.DocumentSnapshot): (EventInput & { id: string; createdAt: string }) | null {
+  if (!doc.exists) return null;
+  const data = doc.data() as EventDocument;
 
-function rowToEvent(row: any) {
   return {
-    id: row.id,
-    title: row.title,
-    date: row.date,
-    description: row.description,
-    imageUrl: row.image_url
+    id: doc.id,
+    title: data.title,
+    date: data.date,
+    description: data.description,
+    imageUrl: data.imageUrl,
+    createdAt: data.createdAt.toDate().toISOString(),
   };
 }
 
 export const eventRepository = {
   findAll: async () => {
-    const { rows } = await pool.query("SELECT * FROM events ORDER BY id DESC");
-    return rows.map(rowToEvent);
+    const snapshot = await eventsCollection.orderBy('createdAt', 'desc').get();
+    return snapshot.docs
+      .map(documentToEvent)
+      .filter((event): event is EventInput & { id: string; createdAt: string } => event !== null);
   },
 
   findById: async (id: string) => {
-    const { rows } = await pool.query("SELECT * FROM events WHERE id = $1", [id]);
-    return rows[0] ? rowToEvent(rows[0]) : null;
+    const doc = await eventsCollection.doc(id).get();
+    return documentToEvent(doc);
   },
 
   create: async (event: EventInput) => {
-    const { title, date, description, imageUrl } = event;
-    const { rows } = await pool.query(
-      `INSERT INTO events (title, date, description, image_url)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [title, date, description, imageUrl]
-    );
-    return rowToEvent(rows[0]);
+    const now = admin.firestore.Timestamp.now();
+    const data: EventDocument = {
+      title: event.title,
+      date: event.date,
+      description: event.description,
+      imageUrl: event.imageUrl,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const docRef = await eventsCollection.add(data);
+    const snapshot = await docRef.get();
+    return documentToEvent(snapshot)!;
   },
 
-  update: async (id: string, updates: EventUpdate) => {
-    const fields: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
-
-    if (updates.title !== undefined) {
-      fields.push(`title = $${idx++}`);
-      values.push(updates.title);
-    }
-    if (updates.date !== undefined) {
-      fields.push(`date = $${idx++}`);
-      values.push(updates.date);
-    }
-    if (updates.description !== undefined) {
-      fields.push(`description = $${idx++}`);
-      values.push(updates.description);
-    }
-    if (updates.imageUrl !== undefined) {
-      fields.push(`image_url = $${idx++}`);
-      values.push(updates.imageUrl);
-    }
-
-    if (fields.length === 0) {
+  update: async (id: string, updates: Partial<EventInput>) => {
+    const payload: Partial<EventDocument> = {};
+    if (updates.title !== undefined) payload.title = updates.title;
+    if (updates.date !== undefined) payload.date = updates.date;
+    if (updates.description !== undefined) payload.description = updates.description;
+    if (updates.imageUrl !== undefined) payload.imageUrl = updates.imageUrl;
+    if (Object.keys(payload).length === 0) {
       return await eventRepository.findById(id);
     }
-
-    values.push(id);
-    const { rows } = await pool.query(
-      `UPDATE events SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
-      values
-    );
-    return rows[0] ? rowToEvent(rows[0]) : null;
+    payload.updatedAt = admin.firestore.Timestamp.now();
+    await eventsCollection.doc(id).update(payload);
+    return eventRepository.findById(id);
   },
 
   delete: async (id: string) => {
-    await pool.query("DELETE FROM events WHERE id = $1", [id]);
+    await eventsCollection.doc(id).delete();
   },
 };

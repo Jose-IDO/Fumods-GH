@@ -31,6 +31,7 @@ type ApiRoom = {
   roomSizeSqm?: number;
   amenities?: string[];
   description?: string;
+  images?: string[];
 };
 
 type UiRoom = {
@@ -45,6 +46,7 @@ type UiRoom = {
   roomSize: number;
   amenities: string[];
   description?: string;
+  images: string[];
 };
 
 type ApiReview = {
@@ -72,7 +74,7 @@ const RoomDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, token } = useAuth();
   const { toggleFavorite, isFavorite } = useFavorites();
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -156,14 +158,17 @@ const RoomDetails: React.FC = () => {
       setError(null);
       try {
         // Fetch room details
-        const res = await fetch(`${API_URL}/admin/rooms/${id}`);
+        const res = await fetch(`${API_URL}/rooms/${id}`);
         const json = await res.json();
         if (!res.ok || !json.ok) throw new Error(json.error || 'Failed to fetch room');
         const r = json.data as ApiRoom;
+        const uploadedImages = Array.isArray(r.images) && r.images.length > 0
+          ? r.images
+          : [pickImage(r.roomType, r.roomName)];
         const mapped: UiRoom = {
           id: r.id,
           name: r.roomName,
-          image: pickImage(r.roomType, r.roomName),
+          image: uploadedImages[0],
           price: Number(r.price) || 0,
           adults: r.maxGuests ?? 2,
           kids: 0,
@@ -172,6 +177,7 @@ const RoomDetails: React.FC = () => {
           roomSize: r.roomSizeSqm || 25,
           amenities: Array.isArray(r.amenities) ? r.amenities : [],
           description: r.description,
+          images: uploadedImages,
         };
         setRoom(mapped);
         setSelectedImage(mapped.image);
@@ -210,7 +216,7 @@ const RoomDetails: React.FC = () => {
       setReviewsLoading(true);
       setReviewsError(null);
       try {
-        const res = await fetch(`${API_URL}/admin/rooms/${id}/reviews`);
+        const res = await fetch(`${API_URL}/rooms/${id}/reviews`);
         const json = await res.json();
         if (!res.ok || !json.ok) throw new Error(json.error || 'Failed to fetch reviews');
 
@@ -266,10 +272,8 @@ const RoomDetails: React.FC = () => {
 
     const rating = Number(newReview.rating);
     const comment = newReview.comment.trim();
-    const author = reviewName.trim();
-
-    if (!author || !comment || !(rating >= 1 && rating <= 5)) {
-      setSubmitError("Name, rating, and comment are required");
+    if (!comment || !(rating >= 1 && rating <= 5)) {
+      setSubmitError("A rating and comment are required");
       return;
     }
 
@@ -277,10 +281,10 @@ const RoomDetails: React.FC = () => {
     setSubmitError(null);
 
     try {
-      const res = await fetch(`${API_URL}/admin/rooms/${id}/reviews`, {
+      const res = await fetch(`${API_URL}/rooms/${id}/reviews`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: author, rating, comment }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rating, comment }),
       });
 
       const json = await res.json();
@@ -315,7 +319,7 @@ const RoomDetails: React.FC = () => {
     const guests = searchParams.get('guests') || '';
 
     const bookingData = {
-      hotelName: "Delta Hotel",
+      hotelName: "Fumods Guesthouse",
       roomId: room.id || id,
       roomType: room.name,
       roomImage: room.image,
@@ -348,10 +352,14 @@ const RoomDetails: React.FC = () => {
                 <img src={room.image} alt={room.name} />
               </div>
               <div className={styles.sideImages}>
-                <img src={room1} alt="Room 1" onClick={() => setSelectedImage(room1)} />
-                <img src={room2} alt="Room 2" onClick={() => setSelectedImage(room2)} />
-                <img src={room3} alt="Room 3" onClick={() => setSelectedImage(room3)} />
-                <img src={room4} alt="Room 4" onClick={() => setSelectedImage(room4)} />
+                {room.images.slice(1, 5).map((image, index) => (
+                  <img
+                    key={image}
+                    src={image}
+                    alt={`${room.name} ${index + 2}`}
+                    onClick={() => setSelectedImage(image)}
+                  />
+                ))}
               </div>
             </div>
 

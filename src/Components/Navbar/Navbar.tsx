@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Navbar.module.css";
 import Logo from "../../assets/Logo.png";
-import HomeIcon from "../../assets/home-icon-silhouette-svgrepo-com.svg";
 import { FaBell } from "react-icons/fa";
 import { useAuth } from "../../contexts/AuthContext";
 import { usePopia } from "../../contexts/PopiaContext";
@@ -47,11 +46,7 @@ export const Navbar: React.FC = () => {
     logout();
     setMenuOpen(false);
   };
-  const handleHomeClick = () => {
-    const adminRoles = ["super_admin", "hotel_manager"];
-    const hasAdminRole = user?.roles?.some((r: any) => (typeof r === "string" ? r : r?.name) && adminRoles.includes(r));
-    navigate(hasAdminRole ? "/admin" : "/dashboard");
-  };
+
   const handleRoomsClick = () => {
     if (!isAccepted) return;
     navigate("/hotel-details");
@@ -142,7 +137,7 @@ export const Navbar: React.FC = () => {
           <div className={styles.LogoCard}>
             <img src={Logo} alt="Logo" style={{ width: "50px", height: "50px" }} />
           </div>
-          <div className={styles.logo}>Delta Hotel</div>
+          <div className={styles.logo}>Fumods Hotel</div>
         </div>
 
         <div className={styles.SubnavContainer2}>

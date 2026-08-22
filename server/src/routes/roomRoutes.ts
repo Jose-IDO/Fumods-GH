@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { roomController } from '../controllers/roomController';
+import { authenticate, requireRole } from '../middleware/auth';
 import { upload } from '../config/upload';
 
 const router = Router();
+router.use(authenticate, requireRole(['super_admin', 'hotel_manager']));
 
 router.get('/:id/reviews', roomController.getRoomReviews.bind(roomController));
 router.post('/:id/reviews', roomController.addRoomReview.bind(roomController));

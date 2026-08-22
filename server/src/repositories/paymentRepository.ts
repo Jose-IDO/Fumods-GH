@@ -1,139 +1,102 @@
-import pool from '../config/db';
+import { firestore, admin } from '../config/firebaseAdmin';
 import { Payment, CreatePaymentDTO, UpdatePaymentDTO } from '../types/payment.types';
 
-function rowToPayment(r: any): Payment {
+const paymentsCollection = firestore.collection('payments');
+
+function documentToPayment(doc: admin.firestore.DocumentSnapshot): Payment | null {
+  if (!doc.exists) return null;
+  const data = doc.data() as any;
   return {
-    id: r.id,
-    bookingId: r.booking_id,
-    userId: r.user_id,
-    amount: Number(r.amount),
-    currency: r.currency,
-    status: r.status,
-    paymentMethod: r.payment_method,
-    paymentReference: r.payment_reference,
-    gatewayResponse: r.gateway_response,
-    paymentDate: r.payment_date,
-    failureReason: r.failure_reason,
-    refundAmount: r.refund_amount ? Number(r.refund_amount) : undefined,
-    refundDate: r.refund_date,
-    refundReference: r.refund_reference,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    id: doc.id,
+    bookingId: data.bookingId,
+    userId: data.userId,
+    amount: Number(data.amount),
+    currency: data.currency,
+    status: data.status,
+    paymentMethod: data.paymentMethod || undefined,
+    paymentReference: data.paymentReference || undefined,
+    gatewayResponse: data.gatewayResponse,
+    paymentDate: data.paymentDate || undefined,
+    failureReason: data.failureReason || undefined,
+    refundAmount: data.refundAmount !== undefined ? Number(data.refundAmount) : undefined,
+    refundDate: data.refundDate || undefined,
+    refundReference: data.refundReference || undefined,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
   };
 }
 
 export class PaymentRepository {
   async create(dto: CreatePaymentDTO): Promise<Payment> {
-    const { rows } = await pool.query(
-      `INSERT INTO payments (booking_id, user_id, amount, currency, payment_method, payment_reference, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-       RETURNING *`,
-      [dto.bookingId, dto.userId, dto.amount, dto.currency || 'ZAR', dto.paymentMethod, dto.paymentReference]
-    );
-    return rowToPayment(rows[0]);
+    const now = admin.firestore.Timestamp.now();
+    const data = {
+      bookingId: dto.bookingId,
+      userId: dto.userId,
+      amount: dto.amount,
+      currency: dto.currency || 'ZAR',
+      paymentMethod: dto.paymentMethod || null,
+      paymentReference: dto.paymentReference || null,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
+    } as any;
+
+    const docRef = await paymentsCollection.add(data);
+    const snapshot = await docRef.get();
+    return documentToPayment(snapshot)!;
   }
 
   async findById(id: string): Promise<Payment | null> {
-    const { rows } = await pool.query(
-      'SELECT * FROM payments WHERE id = $1',
-      [id]
-    );
-    return rows[0] ? rowToPayment(rows[0]) : null;
+    const doc = await paymentsCollection.doc(id).get();
+    return documentToPayment(doc);
   }
 
   async findByReference(reference: string): Promise<Payment | null> {
-    const { rows } = await pool.query(
-      'SELECT * FROM payments WHERE payment_reference = $1',
-      [reference]
-    );
-    return rows[0] ? rowToPayment(rows[0]) : null;
+    const snapshot = await paymentsCollection.where('paymentReference', '==', reference).limit(1).get();
+    if (snapshot.empty) return null;
+    return documentToPayment(snapshot.docs[0]);
   }
 
   async findByBookingId(bookingId: string): Promise<Payment[]> {
-    const { rows } = await pool.query(
-      'SELECT * FROM payments WHERE booking_id = $1 ORDER BY created_at DESC',
-      [bookingId]
-    );
-    return rows.map(rowToPayment);
+    const snapshot = await paymentsCollection
+      .where('bookingId', '==', bookingId)
+      .orderBy('createdAt', 'desc')
+      .get();
+    return snapshot.docs.map(documentToPayment).filter((p): p is Payment => p !== null);
   }
 
   async findByUserId(userId: string): Promise<Payment[]> {
-    const { rows } = await pool.query(
-      'SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC',
-      [userId]
-    );
-    return rows.map(rowToPayment);
+    const snapshot = await paymentsCollection
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .get();
+    return snapshot.docs.map(documentToPayment).filter((p): p is Payment => p !== null);
+  }
+
+  private async updateDocument(id: string, updates: Partial<UpdatePaymentDTO & { updatedAt: any }>): Promise<Payment | null> {
+    const payload: any = { updatedAt: admin.firestore.Timestamp.now() };
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.paymentDate !== undefined) payload.paymentDate = updates.paymentDate;
+    if (updates.failureReason !== undefined) payload.failureReason = updates.failureReason;
+    if (updates.gatewayResponse !== undefined) payload.gatewayResponse = updates.gatewayResponse;
+
+    await paymentsCollection.doc(id).update(payload);
+    return this.findById(id);
   }
 
   async updateStatus(id: string, dto: UpdatePaymentDTO): Promise<Payment | null> {
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
-
-    if (dto.status) {
-      updates.push(`status = $${paramIndex++}`);
-      values.push(dto.status);
-    }
-    if (dto.paymentDate !== undefined) {
-      updates.push(`payment_date = $${paramIndex++}`);
-      values.push(dto.paymentDate);
-    }
-    if (dto.failureReason !== undefined) {
-      updates.push(`failure_reason = $${paramIndex++}`);
-      values.push(dto.failureReason);
-    }
-    if (dto.gatewayResponse !== undefined) {
-      updates.push(`gateway_response = $${paramIndex++}`);
-      values.push(JSON.stringify(dto.gatewayResponse));
-    }
-
-    if (updates.length === 0) return this.findById(id);
-
-    values.push(id);
-    const { rows } = await pool.query(
-      `UPDATE payments SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-      values
-    );
-    return rows[0] ? rowToPayment(rows[0]) : null;
+    return this.updateDocument(id, dto);
   }
 
   async updateByReference(reference: string, dto: UpdatePaymentDTO): Promise<Payment | null> {
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
-
-    if (dto.status) {
-      updates.push(`status = $${paramIndex++}`);
-      values.push(dto.status);
-    }
-    if (dto.paymentDate !== undefined) {
-      updates.push(`payment_date = $${paramIndex++}`);
-      values.push(dto.paymentDate);
-    }
-    if (dto.failureReason !== undefined) {
-      updates.push(`failure_reason = $${paramIndex++}`);
-      values.push(dto.failureReason);
-    }
-    if (dto.gatewayResponse !== undefined) {
-      updates.push(`gateway_response = $${paramIndex++}`);
-      values.push(JSON.stringify(dto.gatewayResponse));
-    }
-
-    if (updates.length === 0) return this.findByReference(reference);
-
-    values.push(reference);
-    const { rows } = await pool.query(
-      `UPDATE payments SET ${updates.join(', ')} WHERE payment_reference = $${paramIndex} RETURNING *`,
-      values
-    );
-    return rows[0] ? rowToPayment(rows[0]) : null;
+    const payment = await this.findByReference(reference);
+    if (!payment) return null;
+    return this.updateDocument(payment.id, dto);
   }
 
   async findAll(): Promise<Payment[]> {
-    const { rows } = await pool.query(
-      'SELECT * FROM payments ORDER BY created_at DESC'
-    );
-    return rows.map(rowToPayment);
+    const snapshot = await paymentsCollection.orderBy('createdAt', 'desc').get();
+    return snapshot.docs.map(documentToPayment).filter((p): p is Payment => p !== null);
   }
 }
 

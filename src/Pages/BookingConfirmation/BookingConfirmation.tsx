@@ -77,7 +77,7 @@ const BookingConfirmation: React.FC = () => {
           if (booking) {
             setBookingData({
               bookingId: booking.id || booking.bookingId,
-              hotelName: booking.hotelName || "Delta Hotel",
+              hotelName: booking.hotelName || "Fumods Guesthouse",
               roomType: booking.roomType || booking.room_type || "Room",
               checkIn: booking.checkIn || booking.check_in,
               checkOut: booking.checkOut || booking.check_out,
@@ -99,7 +99,7 @@ const BookingConfirmation: React.FC = () => {
           // Use data from navigation state (direct navigation from payment page)
           setBookingData({
             bookingId: state.bookingId || "UNKNOWN",
-            hotelName: state.hotelName || "Delta Hotel",
+            hotelName: state.hotelName || "Fumods Guesthouse",
             roomType: state.roomType || "Luxury Suite",
             checkIn: state.checkIn,
             checkOut: state.checkOut,
@@ -148,7 +148,7 @@ const BookingConfirmation: React.FC = () => {
     // Create a simple text receipt
     const receiptContent = `
 ===========================================
-        DELTA HOTEL BOOKING RECEIPT
+        FUMODS GUESTHOUSE BOOKING RECEIPT
 ===========================================
 
 Booking ID: ${bookingData.bookingId}
@@ -179,7 +179,7 @@ Payment Method: ${bookingData.paymentMethod}
 ${bookingData.paymentReference ? `Payment Reference: ${bookingData.paymentReference}` : ''}
 
 -------------------------------------------
-Thank you for choosing Delta Hotel!
+Thank you for choosing Fumods Guesthouse!
 For questions, contact: support@deltahotel.com
 ===========================================
     `.trim();
@@ -204,7 +204,7 @@ For questions, contact: support@deltahotel.com
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.logoSection}>
-          <span className={styles.companyName}>Delta Hotel Booking</span>
+          <span className={styles.companyName}>Fumods Guesthouse</span>
         </div>
         <div className={styles.userSection}>
           <div className={styles.userAvatar}>

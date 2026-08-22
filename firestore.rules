@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null && (request.auth.uid == userId || request.auth.token.roles != null && (request.auth.token.roles.hasAny(['super_admin','hotel_manager','support_agent'])));
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && request.auth.token.roles != null && request.auth.token.roles.hasAny(['super_admin','hotel_manager']);
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.token.roles != null && request.auth.token.roles.hasAny(['super_admin','hotel_manager']));
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.token.roles != null && request.auth.token.roles.hasAny(['super_admin','hotel_manager']));
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (request.auth.uid == resource.data.userId || request.auth.token.roles != null && request.auth.token.roles.hasAny(['super_admin','hotel_manager']));
+    }
+
+    match /deals/{dealId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && request.auth.token.roles != null && request.auth.token.roles.hasAny(['super_admin','hotel_manager']);
+    }
+
+    match /events/{eventId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && request.auth.token.roles != null && request.auth.token.roles.hasAny(['super_admin','hotel_manager']);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    match /hotel_settings/{settingsId} {
+      allow read: if request.auth != null;
+      allow update: if request.auth != null && request.auth.token.roles != null && request.auth.token.roles.hasAny(['super_admin','hotel_manager']);
+    }
+  }
+}

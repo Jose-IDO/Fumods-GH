@@ -32,7 +32,7 @@ import room5 from "../../assets/room1E.jpg";
 import hotelMain from "../../assets/Hotel-Room-1.jpg";
 import hotelImage1 from "../../assets/Hotel-Room-2.jpg";
 import hotelImage2 from "../../assets/Hotel-Room-3.jpg";
-import hotelImage3 from "../../assets/Santorini_1.jpg";
+import hotelImage3 from "../../assets/Santorini_1.jpeg";
 
 const HotelDetails: React.FC = () => {
   // const { id } = useParams<{ id: string }>();
@@ -89,6 +89,7 @@ const HotelDetails: React.FC = () => {
     country: string;
     checkInTime: string;
     checkOutTime: string;
+    faqs?: Array<{ question: string; answer: string }>;
   } | null>(null);
 
   // Apply search parameters from URL on mount
@@ -171,10 +172,8 @@ const HotelDetails: React.FC = () => {
 
   // Hotel data from API or defaults
   const hotelData = {
-    name: hotelSettings?.hotelName || "Delta Hotel",
-    address: hotelSettings 
-      ? `${hotelSettings.addressLine1}${hotelSettings.addressLine2 ? ', ' + hotelSettings.addressLine2 : ''}, ${hotelSettings.city}, ${hotelSettings.stateProvince}, ${hotelSettings.postalCode}`
-      : "1 Mark Shuttleworth Street, Lynwood, Pretoria, 0087, South Africa",
+    name: "Fumods Guesthouse",
+    address: "Fumods Guesthouse",
     mainImage: hotelMain,
     galleryImages: [hotelImage1, hotelImage2, hotelImage3],
   };
@@ -202,7 +201,7 @@ const HotelDetails: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_URL}/admin/rooms?status=active`);
+        const res = await fetch(`${API_URL}/rooms`);
         const json = await res.json();
         if (!res.ok || !json.ok) throw new Error(json.error || 'Failed to fetch rooms');
         const rooms = json.data as Array<{
@@ -379,7 +378,7 @@ const HotelDetails: React.FC = () => {
   }, [roomsData, selectedRoomType, selectedPriceRange, selectedRating, checkedAmenities, searchParams, bookedDates]);
 
   // FAQ data - dynamically including check-in/check-out times from settings
-  const faqData = [
+  const defaultFaqData = [
     {
       question: "What time is check-in and check-out?",
       answer: hotelSettings 
@@ -431,6 +430,9 @@ const HotelDetails: React.FC = () => {
       answer: "Cancellations made at least 48 hours before check-in are eligible for a full refund. Modifications can be made up to 24 hours before arrival, subject to availability."
     }
   ];
+  const faqData = hotelSettings?.faqs !== undefined
+    ? hotelSettings.faqs.filter((faq) => faq.question.trim() && faq.answer.trim())
+    : defaultFaqData;
 
   return (
     <>
@@ -653,7 +655,7 @@ const HotelDetails: React.FC = () => {
             <div className={styles.mapContainer}>
               <iframe
                 title={`${hotelData.name} location`}
-                src={`https://www.google.com/maps?q=${encodeURIComponent(hotelData.address)}&hl=en&z=16&output=embed`}
+                src="https://maps.google.com/maps?q=Fumods%20Guesthouse&hl=en&z=16&output=embed"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 allowFullScreen
@@ -662,7 +664,7 @@ const HotelDetails: React.FC = () => {
             <div className={styles.mapActions}>
               <a
                 className={styles.mapLinkBtn}
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotelData.address)}`}
+                href="https://maps.app.goo.gl/yTHAxD6AntoTAtgPA"
                 target="_blank"
                 rel="noopener noreferrer"
               >

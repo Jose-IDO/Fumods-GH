@@ -4,6 +4,9 @@ import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 
+// POST /admin/users
+router.post('/', authenticate, requireRole(['super_admin', 'hotel_manager']), (req, res) => userController.createAdmin(req, res));
+
 // GET /admin/users
 router.get('/', authenticate, requireRole(['super_admin', 'hotel_manager']), (req, res) => userController.list(req, res));
 

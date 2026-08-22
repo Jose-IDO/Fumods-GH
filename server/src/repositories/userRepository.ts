@@ -1,213 +1,190 @@
-import pool from '../config/db';
+import { firestore, admin } from '../config/firebaseAdmin';
 import { User } from '../types/user.types';
+import { normalizeKeywords } from './firestoreHelpers';
 
-type CreateUserDTO = {
-  email: string;
-  passwordHash: string;
-  firstName: string;
-  lastName: string;
-  phone?: string | null;
-};
+const usersCollection = firestore.collection('users');
 
-function rowToUser(row: any): User {
+function documentToUser(doc: admin.firestore.DocumentSnapshot): (User & { passwordHash?: string }) | null {
+  if (!doc.exists) return null;
+  const data = doc.data() as any;
   return {
-    id: row.id,
-    email: row.email,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    phone: row.phone,
-    profileImageUrl: row.profile_image_url,
-    emailVerified: row.email_verified,
-    isActive: row.is_active,
-    roles: row.roles || [],
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    lastLoginAt: row.last_login_at
+    id: doc.id,
+    email: data.email,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    phone: data.phone || undefined,
+    profileImageUrl: data.profileImageUrl || undefined,
+    emailVerified: data.emailVerified ?? false,
+    isActive: data.isActive ?? true,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
+    lastLoginAt: data.lastLoginAt ? (data.lastLoginAt.toDate ? data.lastLoginAt.toDate() : new Date(data.lastLoginAt)) : undefined,
+    roles: data.roles || [],
+    passwordHash: data.passwordHash,
   };
 }
 
-class UserRepository {
+export class UserRepository {
   async findAll(search?: string, limit = 50, offset = 0): Promise<User[]> {
-    const values: any[] = [];
-    let where = '';
+    let query: admin.firestore.Query = usersCollection.orderBy('createdAt', 'desc').limit(limit);
 
     if (search && search.trim()) {
-      values.push(`%${search.trim().toLowerCase()}%`);
-      where = `WHERE LOWER(u.email) LIKE $${values.length} OR LOWER(u.first_name) LIKE $${values.length} OR LOWER(u.last_name) LIKE $${values.length}`;
+      const terms = normalizeKeywords(search);
+      query = query.where('searchKeywords', 'array-contains-any', terms);
     }
 
-    values.push(limit);
-    values.push(offset);
+    const snapshot = await query.get();
+    const users = snapshot.docs.map(documentToUser).filter((u): u is User => u !== null);
 
-    const sql = `
-      SELECT 
-        u.*,
-        COALESCE(
-          JSON_AGG(
-            JSON_BUILD_OBJECT('name', r.name, 'displayName', r.display_name)
-          ) FILTER (WHERE r.id IS NOT NULL),
-          '[]'
-        ) AS roles
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.is_active = TRUE
-      LEFT JOIN roles r ON r.id = ur.role_id
-      ${where}
-      GROUP BY u.id
-      HAVING bool_or(r.name = 'customer') = TRUE
-      ORDER BY u.created_at DESC
-      LIMIT $${values.length - 1}
-      OFFSET $${values.length};
-    `;
+    if (offset > 0) {
+      return users.slice(offset, offset + limit);
+    }
 
-    const { rows } = await pool.query(sql, values);
-    return rows.map(rowToUser);
+    return users;
   }
+
   async findByEmail(email: string): Promise<(User & { passwordHash?: string }) | null> {
-    const sql = `
-      SELECT 
-        u.*,
-        COALESCE(
-          JSON_AGG(
-            JSON_BUILD_OBJECT('name', r.name, 'displayName', r.display_name)
-          ) FILTER (WHERE r.id IS NOT NULL),
-          '[]'
-        ) AS roles
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.is_active = TRUE
-      LEFT JOIN roles r ON r.id = ur.role_id
-      WHERE u.email = $1
-      GROUP BY u.id;
-    `;
-    const { rows } = await pool.query(sql, [email]);
-    if (!rows[0]) return null;
-    
-    return {
-      ...rowToUser(rows[0]),
-      passwordHash: rows[0].password_hash
-    };
+    const snapshot = await usersCollection.where('email', '==', email.toLowerCase()).limit(1).get();
+    if (snapshot.empty) return null;
+    return documentToUser(snapshot.docs[0]);
   }
 
   async findById(id: string): Promise<User | null> {
-    const sql = `
-      SELECT 
-        u.*,
-        COALESCE(
-          JSON_AGG(
-            JSON_BUILD_OBJECT('name', r.name, 'displayName', r.display_name)
-          ) FILTER (WHERE r.id IS NOT NULL),
-          '[]'
-        ) AS roles
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.is_active = TRUE
-      LEFT JOIN roles r ON r.id = ur.role_id
-      WHERE u.id = $1
-      GROUP BY u.id;
-    `;
-    const { rows } = await pool.query(sql, [id]);
-    return rows[0] ? rowToUser(rows[0]) : null;
+    const doc = await usersCollection.doc(id).get();
+    const user = documentToUser(doc);
+    if (!user) return null;
+    delete (user as any).passwordHash;
+    return user;
   }
 
-  async create(userData: CreateUserDTO): Promise<User> {
-    const sql = `
-      INSERT INTO users (email, password_hash, first_name, last_name, phone)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *;
-    `;
-    const values = [
-      userData.email,
-      userData.passwordHash,
-      userData.firstName,
-      userData.lastName,
-      userData.phone || null
+  async create(userData: {
+    email: string;
+    passwordHash: string;
+    firstName: string;
+    lastName: string;
+    phone?: string | null;
+    roles?: Array<{ name: string; displayName: string; isSystemRole: boolean }>;
+    roleNames?: string[];
+    emailVerified?: boolean;
+  }): Promise<User> {
+    const now = admin.firestore.Timestamp.now();
+    const roles = userData.roles ?? [
+      { name: 'customer', displayName: 'Customer', isSystemRole: true }
     ];
-    
-    const { rows } = await pool.query(sql, values);
-    
-    // Fetch with roles (trigger auto-assigns customer role)
-    const userWithRoles = await this.findById(rows[0].id);
-    return userWithRoles!;
+    const roleNames = userData.roleNames ?? ['customer'];
+    const emailVerified = userData.emailVerified ?? false;
+
+    const data = {
+      email: userData.email.toLowerCase(),
+      passwordHash: userData.passwordHash,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      phone: userData.phone || null,
+      profileImageUrl: null,
+      emailVerified,
+      isActive: true,
+      roles,
+      roleNames,
+      searchKeywords: normalizeKeywords(userData.email, userData.firstName, userData.lastName),
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: now,
+    };
+
+    const docRef = await usersCollection.add(data);
+    const snapshot = await docRef.get();
+    const user = documentToUser(snapshot);
+    if (!user) throw new Error('Failed to create user');
+    delete (user as any).passwordHash;
+    return user;
+  }
+
+  async updateRoles(userId: string, roles: Array<{ name: string; displayName: string; isSystemRole: boolean }>, roleNames: string[]): Promise<void> {
+    await usersCollection.doc(userId).update({
+      roles,
+      roleNames,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
   }
 
   async updateLastLogin(userId: string): Promise<void> {
-    await pool.query(
-      'UPDATE users SET last_login_at = NOW() WHERE id = $1',
-      [userId]
-    );
+    await usersCollection.doc(userId).update({
+      lastLoginAt: admin.firestore.Timestamp.now(),
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
   }
 
   async updateIsActive(userId: string, isActive: boolean): Promise<void> {
-    await pool.query(
-      'UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2',
-      [isActive, userId]
-    );
+    await usersCollection.doc(userId).update({
+      isActive,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
   }
 
   async findAdmins(): Promise<User[]> {
-    const sql = `
-      SELECT 
-        u.*,
-        COALESCE(
-          JSON_AGG(
-            JSON_BUILD_OBJECT('name', r.name, 'displayName', r.display_name)
-          ) FILTER (WHERE r.id IS NOT NULL),
-          '[]'
-        ) AS roles
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.is_active = TRUE
-      LEFT JOIN roles r ON r.id = ur.role_id
-      GROUP BY u.id
-      HAVING bool_or(r.name IN ('super_admin', 'hotel_manager', 'support_agent')) = TRUE
-      ORDER BY 
-        CASE 
-          WHEN bool_or(r.name = 'super_admin') THEN 1
-          WHEN bool_or(r.name = 'hotel_manager') THEN 2
-          WHEN bool_or(r.name = 'support_agent') THEN 3
-          ELSE 4
-        END,
-        u.created_at DESC;
-    `;
-    const { rows } = await pool.query(sql);
-    return rows.map(rowToUser);
+    const snapshot = await usersCollection
+      .where('roleNames', 'array-contains-any', ['super_admin', 'hotel_manager', 'support_agent'])
+      .get();
+
+    return snapshot.docs
+      .map(documentToUser)
+      .filter((u): u is User => u !== null)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map((user) => {
+        delete (user as any).passwordHash;
+        return user;
+      });
+  }
+
+  async findCustomers(): Promise<User[]> {
+    const snapshot = await usersCollection
+      .where('roleNames', 'array-contains', 'customer')
+      .get();
+
+    return snapshot.docs
+      .map(documentToUser)
+      .filter((u): u is User => u !== null)
+      .map((user) => {
+        delete (user as any).passwordHash;
+        return user;
+      });
   }
 
   async updateProfile(userId: string, fields: { firstName?: string; lastName?: string; phone?: string | null; profileImageUrl?: string | null; }): Promise<User | null> {
-    const updates: string[] = [];
-    const values: any[] = [];
+    const updates: any = {
+      updatedAt: admin.firestore.Timestamp.now(),
+    };
 
-    if (typeof fields.firstName !== 'undefined') {
-      values.push(fields.firstName);
-      updates.push(`first_name = $${values.length}`);
-    }
-    if (typeof fields.lastName !== 'undefined') {
-      values.push(fields.lastName);
-      updates.push(`last_name = $${values.length}`);
-    }
-    if (typeof fields.phone !== 'undefined') {
-      values.push(fields.phone);
-      updates.push(`phone = $${values.length}`);
-    }
-    if (typeof fields.profileImageUrl !== 'undefined') {
-      values.push(fields.profileImageUrl);
-      updates.push(`profile_image_url = $${values.length}`);
+    if (fields.firstName !== undefined) updates.firstName = fields.firstName;
+    if (fields.lastName !== undefined) updates.lastName = fields.lastName;
+    if (fields.phone !== undefined) updates.phone = fields.phone;
+    if (fields.profileImageUrl !== undefined) updates.profileImageUrl = fields.profileImageUrl;
+
+    if (fields.firstName || fields.lastName) {
+      updates.searchKeywords = normalizeKeywords(fields.firstName || '', fields.lastName || '');
     }
 
-    if (updates.length === 0) {
-      return this.findById(userId);
-    }
-
-    values.push(userId);
-    const sql = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${values.length}`;
-    await pool.query(sql, values);
+    await usersCollection.doc(userId).update(updates);
     return this.findById(userId);
   }
 
+  async updateEmailVerified(userId: string, isVerified: boolean): Promise<void> {
+    await usersCollection.doc(userId).update({
+      emailVerified: isVerified,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+  }
+
   async getPasswordHashById(userId: string): Promise<string | null> {
-    const { rows } = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
-    return rows[0]?.password_hash || null;
+    const doc = await usersCollection.doc(userId).get();
+    return doc.data()?.passwordHash || null;
   }
 
   async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
-    await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [passwordHash, userId]);
+    await usersCollection.doc(userId).update({
+      passwordHash,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
   }
 }
 

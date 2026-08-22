@@ -1,191 +1,133 @@
-import pool from '../config/db';
+import { firestore, admin } from '../config/firebaseAdmin';
 import { Deal, DealPayload, DealWithRoom } from '../types/deal.types';
+
+const dealsCollection = firestore.collection('deals');
+const roomsCollection = firestore.collection('rooms');
+
+function timestampFromDate(date: Date) {
+  return admin.firestore.Timestamp.fromDate(date);
+}
+
+function documentToDeal(doc: admin.firestore.DocumentSnapshot): Deal | null {
+  if (!doc.exists) return null;
+  const data = doc.data() as any;
+  return {
+    id: Number(data.id ?? doc.id),
+    roomId: data.roomId,
+    title: data.title,
+    description: data.description ?? null,
+    discountPercentage: data.discountPercentage,
+    startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
+    endDate: data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate),
+    isActive: data.isActive,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+  };
+}
+
+async function getDealDocById(id: number) {
+  const querySnapshot = await dealsCollection.where('id', '==', id).limit(1).get();
+  return querySnapshot.empty ? null : querySnapshot.docs[0];
+}
+
+async function hydrateDealWithRoom(deal: Deal): Promise<DealWithRoom> {
+  const roomSnapshot = await roomsCollection.doc(deal.roomId).get();
+  const roomData = roomSnapshot.exists ? (roomSnapshot.data() as any) : null;
+  const originalPrice = Number(roomData?.price ?? 0);
+  const discountPercentage = deal.discountPercentage;
+
+  return {
+    ...deal,
+    roomName: roomData?.roomName ?? '',
+    roomType: roomData?.roomType ?? '',
+    originalPrice,
+    discountedPrice: originalPrice * (1 - discountPercentage / 100),
+    images: roomData?.images ?? [],
+    maxGuests: roomData?.maxGuests ?? 0,
+    bedType: roomData?.bedType ?? '',
+  };
+}
 
 export const dealRepository = {
   async createDeal(payload: DealPayload): Promise<Deal> {
-    const query = `
-      INSERT INTO deals (room_id, title, description, discount_percentage, start_date, end_date, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
-    `;
-    const values = [
-      payload.roomId,
-      payload.title,
-      payload.description || null,
-      payload.discountPercentage,
-      payload.startDate,
-      payload.endDate,
-      payload.isActive !== undefined ? payload.isActive : true
-    ];
-    const result = await pool.query(query, values);
-    return rowToDeal(result.rows[0]);
+    const now = admin.firestore.Timestamp.now();
+    const id = Date.now();
+    const docRef = dealsCollection.doc();
+    await docRef.set({
+      id,
+      roomId: payload.roomId,
+      title: payload.title,
+      description: payload.description ?? null,
+      discountPercentage: payload.discountPercentage,
+      startDate: timestampFromDate(payload.startDate),
+      endDate: timestampFromDate(payload.endDate),
+      isActive: payload.isActive !== undefined ? payload.isActive : true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const snapshot = await docRef.get();
+    return documentToDeal(snapshot)!;
   },
 
   async getAllDeals(): Promise<DealWithRoom[]> {
-    const query = `
-      SELECT 
-        d.id, d.room_id, d.title, d.description, d.discount_percentage, 
-        d.start_date, d.end_date, d.is_active, d.created_at,
-        r.room_name, r.room_type, r.price, r.images, r.max_guests, r.bed_type
-      FROM deals d
-      JOIN rooms r ON d.room_id = r.id
-      ORDER BY d.created_at DESC
-    `;
-    const result = await pool.query(query);
-    return result.rows.map(rowToDealWithRoom);
+    const snapshot = await dealsCollection.orderBy('createdAt', 'desc').get();
+    const deals = snapshot.docs
+      .map(documentToDeal)
+      .filter((deal): deal is Deal => deal !== null);
+    return Promise.all(deals.map(hydrateDealWithRoom));
   },
 
   async getActiveDeals(): Promise<DealWithRoom[]> {
-    // Check if status column exists before filtering
-    let statusFilter = '';
-    try {
-      const checkColumn = await pool.query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'rooms' AND column_name = 'status'
-      `);
-      
-      if (checkColumn.rows.length > 0) {
-        statusFilter = `AND r.status = 'active'`;
-      }
-    } catch (err) {
-      console.warn('Could not check for status column in deals query, proceeding without filter');
-    }
-    
-    const query = `
-      SELECT 
-        d.id, d.room_id, d.title, d.description, d.discount_percentage, 
-        d.start_date, d.end_date, d.is_active, d.created_at,
-        r.room_name, r.room_type, r.price, r.images, r.max_guests, r.bed_type
-      FROM deals d
-      JOIN rooms r ON d.room_id = r.id
-      WHERE d.is_active = true 
-        AND d.start_date <= NOW() 
-        AND d.end_date >= NOW()
-        ${statusFilter}
-      ORDER BY d.created_at DESC
-    `;
-    const result = await pool.query(query);
-    return result.rows.map(rowToDealWithRoom);
+    const now = admin.firestore.Timestamp.now();
+    const snapshot = await dealsCollection
+      .where('isActive', '==', true)
+      .where('startDate', '<=', now)
+      .where('endDate', '>=', now)
+      .orderBy('startDate')
+      .get();
+    const deals = snapshot.docs
+      .map(documentToDeal)
+      .filter((deal): deal is Deal => deal !== null);
+    return Promise.all(deals.map(hydrateDealWithRoom));
   },
 
   async getDealById(id: number): Promise<DealWithRoom | null> {
-    const query = `
-      SELECT 
-        d.id, d.room_id, d.title, d.description, d.discount_percentage, 
-        d.start_date, d.end_date, d.is_active, d.created_at,
-        r.room_name, r.room_type, r.price, r.images, r.max_guests, r.bed_type
-      FROM deals d
-      JOIN rooms r ON d.room_id = r.id
-      WHERE d.id = $1
-    `;
-    const result = await pool.query(query, [id]);
-    return result.rows[0] ? rowToDealWithRoom(result.rows[0]) : null;
+    const doc = await getDealDocById(id);
+    if (!doc) return null;
+    const deal = documentToDeal(doc);
+    return deal ? hydrateDealWithRoom(deal) : null;
   },
 
   async updateDeal(id: number, payload: Partial<DealPayload>): Promise<Deal | null> {
-    const fields: string[] = [];
-    const values: any[] = [];
-    let paramCount = 1;
-
-    if (payload.roomId !== undefined) {
-      fields.push(`room_id = $${paramCount++}`);
-      values.push(payload.roomId);
-    }
-    if (payload.title !== undefined) {
-      fields.push(`title = $${paramCount++}`);
-      values.push(payload.title);
-    }
-    if (payload.description !== undefined) {
-      fields.push(`description = $${paramCount++}`);
-      values.push(payload.description);
-    }
-    if (payload.discountPercentage !== undefined) {
-      fields.push(`discount_percentage = $${paramCount++}`);
-      values.push(payload.discountPercentage);
-    }
-    if (payload.startDate !== undefined) {
-      fields.push(`start_date = $${paramCount++}`);
-      values.push(payload.startDate);
-    }
-    if (payload.endDate !== undefined) {
-      fields.push(`end_date = $${paramCount++}`);
-      values.push(payload.endDate);
-    }
-    if (payload.isActive !== undefined) {
-      fields.push(`is_active = $${paramCount++}`);
-      values.push(payload.isActive);
-    }
-
-    if (fields.length === 0) {
-      return null;
-    }
-
-    values.push(id);
-    const query = `
-      UPDATE deals 
-      SET ${fields.join(', ')}
-      WHERE id = $${paramCount}
-      RETURNING *
-    `;
-
-    const result = await pool.query(query, values);
-    return result.rows[0] ? rowToDeal(result.rows[0]) : null;
+    const doc = await getDealDocById(id);
+    if (!doc) return null;
+    const updatePayload: any = { updatedAt: admin.firestore.Timestamp.now() };
+    if (payload.roomId !== undefined) updatePayload.roomId = payload.roomId;
+    if (payload.title !== undefined) updatePayload.title = payload.title;
+    if (payload.description !== undefined) updatePayload.description = payload.description;
+    if (payload.discountPercentage !== undefined) updatePayload.discountPercentage = payload.discountPercentage;
+    if (payload.startDate !== undefined) updatePayload.startDate = timestampFromDate(payload.startDate);
+    if (payload.endDate !== undefined) updatePayload.endDate = timestampFromDate(payload.endDate);
+    if (payload.isActive !== undefined) updatePayload.isActive = payload.isActive;
+    await doc.ref.update(updatePayload);
+    const updatedSnapshot = await doc.ref.get();
+    return documentToDeal(updatedSnapshot);
   },
 
   async toggleDealActive(id: number): Promise<Deal | null> {
-    const query = `
-      UPDATE deals 
-      SET is_active = NOT is_active
-      WHERE id = $1
-      RETURNING *
-    `;
-    const result = await pool.query(query, [id]);
-    return result.rows[0] ? rowToDeal(result.rows[0]) : null;
+    const doc = await getDealDocById(id);
+    if (!doc) return null;
+    const current = doc.data()?.isActive;
+    await doc.ref.update({
+      isActive: !current,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    return documentToDeal(await doc.ref.get());
   },
 
   async deleteDeal(id: number): Promise<boolean> {
-    const query = 'DELETE FROM deals WHERE id = $1';
-    const result = await pool.query(query, [id]);
-    return (result.rowCount || 0) > 0;
-  }
+    const doc = await getDealDocById(id);
+    if (!doc) return false;
+    await doc.ref.delete();
+    return true;
+  },
 };
-
-function rowToDeal(row: any): Deal {
-  return {
-    id: row.id,
-    roomId: row.room_id,
-    title: row.title,
-    description: row.description,
-    discountPercentage: row.discount_percentage,
-    startDate: new Date(row.start_date),
-    endDate: new Date(row.end_date),
-    isActive: row.is_active,
-    createdAt: new Date(row.created_at)
-  };
-}
-
-function rowToDealWithRoom(row: any): DealWithRoom {
-  const originalPrice = parseFloat(row.price);
-  const discountPercentage = row.discount_percentage;
-  const discountedPrice = originalPrice * (1 - discountPercentage / 100);
-
-  return {
-    id: row.id,
-    roomId: row.room_id,
-    title: row.title,
-    description: row.description,
-    discountPercentage: row.discount_percentage,
-    startDate: new Date(row.start_date),
-    endDate: new Date(row.end_date),
-    isActive: row.is_active,
-    createdAt: new Date(row.created_at),
-    roomName: row.room_name,
-    roomType: row.room_type,
-    originalPrice,
-    discountedPrice,
-    images: row.images || [],
-    maxGuests: row.max_guests,
-    bedType: row.bed_type
-  };
-}

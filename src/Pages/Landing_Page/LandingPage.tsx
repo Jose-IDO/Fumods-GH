@@ -5,13 +5,10 @@ import DealsSection from '../../Components/DealSection/DealSection'
 import LandingSections from "../../Components/LandingSections/LandingSections"
 import PopiaOverlay from '../../Components/Popia/PopiaOverlay'
 import { usePopia } from '../../contexts/PopiaContext'
-import santorini1 from '../../assets/Santorini_1.jpg'
+import santorini1 from '../../assets/Santorini_1.jpeg'
 import santorini2 from '../../assets/Santorini_2.jpg'
 import santorini3 from '../../assets/Santorini_3.jpg'
 import santorini4 from '../../assets/Santorini_4.jpg'
-import santorini5 from '../../assets/Santorini_5.jpg'
-import santorini6 from '../../assets/Santorini_6.jpg'
-import santorini7 from '../../assets/Santorini_7.jpg'
 import coffeecup from '../../assets/coffee_cup.png'
 import sofa from '../../assets/sofa.png'
 import wifi from '../../assets/wifi-signal.png'
@@ -20,7 +17,7 @@ import wifi from '../../assets/wifi-signal.png'
 export const LandingPage = () => {
   const [currentImage, setCurrentImage] = useState(0)
   const { isAccepted } = usePopia()
-  const images = [santorini1, santorini2, santorini3, santorini4, santorini5, santorini6, santorini7]
+  const images = [santorini1, santorini2, santorini3, santorini4]
 
   const nextImage = () => {
     if (!isAccepted) return
@@ -70,7 +67,7 @@ export const LandingPage = () => {
           &gt;
         </button>
         <div className={styles.textContent}>
-          <div>Welcome to Delta's Signature Stays.</div>
+          <div>Welcome to Fumods Guest House.</div>
           <div>Where comfort meets elegance.</div>
           <div>your journey truly, begins with us.</div>
         </div>

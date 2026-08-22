@@ -13,6 +13,7 @@ export interface Booking {
   expiresAt?: string;
   roomCount: number;
   createdAt: string;
+  confirmationEmailSentAt?: string;
 }
 
 export interface CreateBookingDTO {

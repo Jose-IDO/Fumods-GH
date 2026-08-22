@@ -1,6 +1,6 @@
 # Delta Hotel Booking & Management System
 
-A comprehensive hotel booking and management web application built with React, TypeScript, Node.js, and PostgreSQL. This full-stack system allows customers to browse and book hotel rooms while providing administrators with complete hotel management capabilities.
+A comprehensive hotel booking and management web application built with React, TypeScript, Node.js, and Firebase Firestore. This full-stack system allows customers to browse and book hotel rooms while providing administrators with complete hotel management capabilities.
 
 ## 🏨 Customer Interface Features
 
@@ -41,7 +41,7 @@ A comprehensive hotel booking and management web application built with React, T
 
 ### Backend
 - **Runtime**: Node.js with Express.js
-- **Database**: PostgreSQL (hosted on Supabase)
+- **Database**: Firebase Firestore via `firebase-admin`
 - **Authentication**: JWT tokens with Passport.js
 - **Payment Gateway**: Paystack integration
 - **File Storage**: Cloudinary for image uploads
@@ -49,7 +49,7 @@ A comprehensive hotel booking and management web application built with React, T
 - **API**: RESTful API with TypeScript
 
 ### Database
-- PostgreSQL with UUID primary keys
+- Firebase Firestore document store
 - Role-based access control (RBAC)
 - Booking management with status tracking
 - Payment tracking and references
@@ -60,7 +60,7 @@ A comprehensive hotel booking and management web application built with React, T
 
 ### Prerequisites
 - Node.js 18+ and npm
-- PostgreSQL database (or Supabase account)
+- Firebase project with Firestore enabled
 - Cloudinary account (for image uploads)
 - Paystack account (for payments)
 
@@ -86,27 +86,29 @@ A comprehensive hotel booking and management web application built with React, T
 4. **Set up environment variables**
 
    Frontend `.env`:
-   ```
+   ```bash
    VITE_API_URL=http://localhost:4000
    ```
 
    Backend `.env`:
-   ```
-   DATABASE_URL=postgresql://user:password@host:port/database
+   ```bash
+   FIREBASE_PROJECT_ID=your-firestore-project-id
+   FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"...","client_id":"...","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"..."}
    JWT_SECRET=your-secret-key
-   PORT=4000
+   JWT_EXPIRES_IN=7d
+   ENABLE_FALLBACK_AUTH=false
+   PAYSTACK_SECRET_KEY=sk_test_your-secret-key
    PUBLIC_BASE_URL=http://localhost:5173
    CLOUDINARY_CLOUD_NAME=your-cloud-name
    CLOUDINARY_API_KEY=your-api-key
    CLOUDINARY_API_SECRET=your-api-secret
-   PAYSTACK_SECRET_KEY=your-paystack-secret
-   PAYSTACK_PUBLIC_KEY=your-paystack-public
+   PORT=4000
    ```
 
-5. **Run database migrations**
+5. **Start the backend server**
    ```bash
    cd server
-   npm run migrate
+   npm run dev
    ```
 
 6. **Start the development servers**
@@ -134,14 +136,13 @@ mlcab-hotel/
 │   └── utils/                  # Utility functions
 ├── server/                      # Backend source code
 │   ├── src/
-│   │   ├── config/             # Database, auth, upload configs
+│   │   ├── config/             # Firebase, auth, upload configs
 │   │   ├── controllers/        # Request handlers
 │   │   ├── routes/             # API routes
-│   │   ├── repositories/       # Database access layer
+│   │   ├── repositories/       # Firestore access layer
 │   │   ├── services/           # Business logic
 │   │   ├── middleware/         # Express middleware
 │   │   ├── types/              # TypeScript types
-│   │   └── sql/                # Database migrations
 │   └── package.json
 ├── public/                      # Static assets
 └── README.md
@@ -163,7 +164,7 @@ mlcab-hotel/
 - **Event Management**: Create and manage hotel events
 - **Search & Filtering**: Advanced search and filter capabilities
 - **Responsive Design**: Mobile-friendly interface
-- **Database Integration**: Full PostgreSQL integration
+- **Database Integration**: Firebase Firestore integration
 - **Image Upload**: Cloudinary integration for room and event images
 
 ### 🚧 Future Enhancements
@@ -189,7 +190,7 @@ mlcab-hotel/
 - Node.js
 - Express.js
 - TypeScript
-- PostgreSQL
+- Firebase Firestore via `firebase-admin`
 - Passport.js (JWT & OAuth)
 - Socket.io
 - Cloudinary SDK

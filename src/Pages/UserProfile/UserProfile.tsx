@@ -67,6 +67,10 @@ const UserProfile: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(10);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [reviewingBookingId, setReviewingBookingId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
   
   // UI state
   const [loading, setLoading] = useState(false);
@@ -140,6 +144,36 @@ const UserProfile: React.FC = () => {
       console.error('Error fetching bookings:', err);
     } finally {
       setLoadingBookings(false);
+    }
+  };
+
+  const submitBookingReview = async (booking: Booking) => {
+    if (!booking.roomId || !reviewComment.trim()) {
+      setError('Please write a review before submitting.');
+      return;
+    }
+
+    setSubmittingReview(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_URL}/rooms/${booking.roomId}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rating: reviewRating, comment: reviewComment.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Unable to submit review');
+      setSuccess('Thank you — your review has been published.');
+      setReviewingBookingId(null);
+      setReviewComment('');
+      setReviewRating(5);
+    } catch (err: any) {
+      setError(err.message || 'Unable to submit review');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -637,6 +671,48 @@ const UserProfile: React.FC = () => {
                           )}
                         </div>
 
+                        {booking.roomId && ['confirmed', 'completed'].includes(booking.status.toLowerCase()) && (
+                          <div style={{ marginTop: 20, borderTop: '1px solid #eee', paddingTop: 16 }}>
+                            {reviewingBookingId === bookingIdentifier ? (
+                              <div style={{ display: 'grid', gap: 10 }}>
+                                <strong>Review {booking.roomName || booking.roomType}</strong>
+                                <label className={styles.label}>
+                                  Rating
+                                  <select
+                                    className={styles.input}
+                                    value={reviewRating}
+                                    onChange={(e) => setReviewRating(Number(e.target.value))}
+                                  >
+                                    {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} star{rating === 1 ? '' : 's'}</option>)}
+                                  </select>
+                                </label>
+                                <label className={styles.label}>
+                                  Your review
+                                  <textarea
+                                    className={styles.input}
+                                    value={reviewComment}
+                                    onChange={(e) => setReviewComment(e.target.value)}
+                                    placeholder="Tell future guests about your stay"
+                                    rows={3}
+                                  />
+                                </label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button className={styles.saveButton} disabled={submittingReview} onClick={() => submitBookingReview(booking)}>
+                                    {submittingReview ? 'Publishing...' : 'Publish review'}
+                                  </button>
+                                  <button className={styles.cancelButton} onClick={() => { setReviewingBookingId(null); setReviewComment(''); }}>
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button className={styles.saveButton} onClick={() => setReviewingBookingId(bookingIdentifier || null)}>
+                                Leave a review
+                              </button>
+                            )}
+                          </div>
+                        )}
+
                       </div>
                     );
                     })}
@@ -686,7 +762,12 @@ const UserProfile: React.FC = () => {
                 ) : (
                   <div className={styles.favouritesGrid}>
                     {favorites.map((fav) => (
-                      <div key={fav.id} className={styles.favCard}>
+                      <div
+                        key={fav.id}
+                        className={styles.favCard}
+                        style={{ cursor: fav.type === 'room' ? 'pointer' : 'default' }}
+                        onClick={() => fav.type === 'room' && navigate(`/room-details/${fav.id}`)}
+                      >
                         {fav.image && (
                           <img src={fav.image} alt={fav.name} className={styles.favImg} />
                         )}
@@ -701,7 +782,7 @@ const UserProfile: React.FC = () => {
 
                         <button
                           className={styles.removeFavBtn}
-                          onClick={() => toggleFavorite(fav)}
+                          onClick={(event) => { event.stopPropagation(); toggleFavorite(fav); }}
                         >
                           Remove
                         </button>

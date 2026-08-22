@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import passport from './config/passport';
 import roomRoutes from './routes/roomRoutes';
+import publicRoomRoutes from './routes/publicRoomRoutes';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import profileRoutes from './routes/profileRoutes';
@@ -13,7 +14,6 @@ import { errorHandler } from './middleware/errorHandler';
 import { logger } from './middleware/logger';
 import eventRoutes from "./routes/eventRoutes";
 import notificationRoutes from './routes/NotificationRoute';
-import migrationRoutes from './routes/migrationRoutes';
 
 const app = express();
 
@@ -27,6 +27,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/auth', authRoutes);
+app.use('/rooms', publicRoomRoutes);
 app.use('/admin/rooms', roomRoutes);
 app.use('/admin/users', userRoutes);
 app.use('/users', profileRoutes);
@@ -37,7 +38,6 @@ app.use('/payments', paymentsRoutes);
 app.use('/settings', hotelSettingsRoutes);
 app.use("/admin/events", eventRoutes);
 app.use('/notifications', notificationRoutes);
-app.use('/admin/migrations', migrationRoutes);
 
 app.use(errorHandler);
 

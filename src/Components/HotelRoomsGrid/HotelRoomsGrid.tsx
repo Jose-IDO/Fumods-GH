@@ -53,15 +53,15 @@ export const HotelRoomsGrid = () => {
   ];
 
   const hotelData = [
-    { name: "Delta hotel Durban", rating: 3.5, amenities: ["WiFi", "Pool", "Parking"], bedrooms: 2, bathrooms: 1, guests: 4, price: 1200 },
-    { name: "Delta hotel Cape Town", rating: 5, amenities: ["WiFi", "Spa", "Beach Access"], bedrooms: 3, bathrooms: 2, guests: 6, price: 1500 },
-    { name: "Delta hotel Sandton", rating: 4, amenities: ["WiFi", "Gym", "Business Center"], bedrooms: 1, bathrooms: 1, guests: 2, price: 800 },
-    { name: "Delta hotel Waterkloof", rating: 3, amenities: ["WiFi", "Parking", "Restaurant"], bedrooms: 2, bathrooms: 1, guests: 4, price: 1000 },
-    { name: "Delta hotel Stellenbosch", rating: 4.5, amenities: ["WiFi", "Spa", "Mountain View"], bedrooms: 3, bathrooms: 3, guests: 6, price: 1500 },
-    { name: "Delta hotel Durban", rating: 3.5, amenities: ["WiFi", "Pool", "Room Service"], bedrooms: 1, bathrooms: 1, guests: 2, price: 750 },
-    { name: "Delta hotel Cape Town", rating: 4.5, amenities: ["WiFi", "Pool", "Bar"], bedrooms: 2, bathrooms: 1, guests: 4, price: 1500 },
-    { name: "Delta hotel Sandton", rating: 3, amenities: ["WiFi", "Parking", "Concierge"], bedrooms: 3, bathrooms: 2, guests: 6, price: 1500 },
-    { name: "Delta hotel Waterkloof", rating: 4, amenities: ["WiFi", "Gym", "Laundry"], bedrooms: 2, bathrooms: 1, guests: 3, price: 950 }
+    { name: "Fumods Guesthouse Durban", rating: 3.5, amenities: ["WiFi", "Pool", "Parking"], bedrooms: 2, bathrooms: 1, guests: 4, price: 1200 },
+    { name: "Fumods Guesthouse Cape Town", rating: 5, amenities: ["WiFi", "Spa", "Beach Access"], bedrooms: 3, bathrooms: 2, guests: 6, price: 1500 },
+    { name: "Fumods Guesthouse Sandton", rating: 4, amenities: ["WiFi", "Gym", "Business Center"], bedrooms: 1, bathrooms: 1, guests: 2, price: 800 },
+    { name: "Fumods Guesthouse Waterkloof", rating: 3, amenities: ["WiFi", "Parking", "Restaurant"], bedrooms: 2, bathrooms: 1, guests: 4, price: 1000 },
+    { name: "Fumods Guesthouse Stellenbosch", rating: 4.5, amenities: ["WiFi", "Spa", "Mountain View"], bedrooms: 3, bathrooms: 3, guests: 6, price: 1500 },
+    { name: "Fumods Guesthouse Durban", rating: 3.5, amenities: ["WiFi", "Pool", "Room Service"], bedrooms: 1, bathrooms: 1, guests: 2, price: 750 },
+    { name: "Fumods Guesthouse Cape Town", rating: 4.5, amenities: ["WiFi", "Pool", "Bar"], bedrooms: 2, bathrooms: 1, guests: 4, price: 1500 },
+    { name: "Fumods Guesthouse Sandton", rating: 3, amenities: ["WiFi", "Parking", "Concierge"], bedrooms: 3, bathrooms: 2, guests: 6, price: 1500 },
+    { name: "Fumods Guesthouse Waterkloof", rating: 4, amenities: ["WiFi", "Gym", "Laundry"], bedrooms: 2, bathrooms: 1, guests: 3, price: 950 }
   ];
 
   const numberOfRooms = showAll ? 9 : 6;

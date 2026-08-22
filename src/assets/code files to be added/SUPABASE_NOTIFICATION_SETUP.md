@@ -1,5 +1,7 @@
 # Supabase Notification System Setup Guide
 
+> NOTE: This guide documents legacy Supabase/PostgreSQL setup and is not aligned with the current Firebase Firestore backend. Use it only for reference while migrating or archiving old documentation.
+
 ## Overview
 This guide will walk you through setting up the notification system database tables in Supabase. The notification system allows users to receive real-time notifications for booking confirmations, booking updates, and promotional messages.
 

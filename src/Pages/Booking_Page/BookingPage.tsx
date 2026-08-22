@@ -5,7 +5,7 @@ import { LoggedInNavbar } from "../../Components/LoggedInNavbar/LoggedInNavbar";
 import Button from "../../Components/Shared/Button";
 import Input from "../../Components/Shared/Input";
 import styles from "./BookingPage.module.css";
-import hotelImage from "../../assets/Santorini_7.jpg";   // ← Your image
+import hotelImage from "../../assets/Santorini_4.jpg";   // ← Your image
 import { API_URL } from "../../config/api";
 
 interface Guest {
@@ -25,7 +25,7 @@ const BookingPage: React.FC = () => {
   const navigate = useNavigate();
   const {
     roomId,
-    hotelName = "Delta Hotel",
+    hotelName = "Fumods Guesthouse",
     roomType = "Luxury Deluxe Suite",
     roomImage = hotelImage,
     pricePerNight: initialPricePerNight = 1200,
@@ -51,31 +51,6 @@ const BookingPage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [taxRate, setTaxRate] = useState<number>(15); // Default 15% tax
-  const [cancellationPolicy, setCancellationPolicy] = useState<string>("R300 if cancelled within 24 hrs");
-
-  // Fetch tax rate and cancellation policy from settings
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch(`${API_URL}/settings/public`);
-        const json = await res.json();
-        if (res.ok && json.ok && json.data) {
-          if (json.data.taxRate) {
-            setTaxRate(json.data.taxRate);
-          }
-          if (json.data.cancellationPolicy) {
-            setCancellationPolicy(json.data.cancellationPolicy);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch settings:', err);
-        // Keep defaults
-      }
-    };
-
-    fetchSettings();
-  }, []);
 
   // Auto-adjust guests if they exceed the new maximum when room count changes
   useEffect(() => {
@@ -99,10 +74,8 @@ const BookingPage: React.FC = () => {
   const maxAllowedGuests = maxGuests * roomCount;
   const totalPrice = initialPricePerNight * nights * roomCount;
 
-  // Calculate tax and grand total
   const subtotal = totalPrice;
-  const taxAmount = (subtotal * taxRate) / 100;
-  const grandTotal = subtotal + taxAmount;
+  const grandTotal = subtotal;
 
   // --- Format stay string ---
   const formatDate = (date: string) => {
@@ -194,10 +167,8 @@ const BookingPage: React.FC = () => {
       const bookingData = result.data?.booking || result.booking || result.data || result;
       const paymentInfo = result.data?.payment || result.payment;
 
-      // Calculate grand total with tax for payment
       const subtotal = totalPrice;
-      const taxAmount = (subtotal * taxRate) / 100;
-      const grandTotal = subtotal + taxAmount;
+      const grandTotal = subtotal;
 
       const paymentData = {
         bookingId: bookingData.id,
@@ -210,9 +181,8 @@ const BookingPage: React.FC = () => {
         nights,
         guests,
         pricePerNight: initialPricePerNight,
-        totalPrice: grandTotal, // Pass grand total (with tax) to payment page
-        subtotal: subtotal, // Also pass subtotal for display
-        taxAmount: taxAmount, // Pass tax amount for display
+        totalPrice: grandTotal,
+        subtotal,
         guest,
         expiresAt: bookingData.expiresAt,
       };
@@ -279,19 +249,11 @@ const BookingPage: React.FC = () => {
                 <span>R{subtotal.toLocaleString()}</span>
               </div>
 
-              <div className={styles.priceRow}>
-                <span>Tax ({taxRate}%)</span>
-                <span>R{taxAmount.toFixed(2)}</span>
-              </div>
-
               <div className={styles.totalRow}>
                 <span>Grand Total</span>
                 <span className={styles.totalPrice}>R{grandTotal.toFixed(2)}</span>
               </div>
 
-              {cancellationPolicy && (
-                <p className={styles.cancellation}>{cancellationPolicy}</p>
-              )}
             </div>
           </aside>
 
@@ -358,10 +320,6 @@ const BookingPage: React.FC = () => {
                 <div className={styles.priceRow}>
                   <span>R{initialPricePerNight.toLocaleString()} × {nights} night{nights > 1 ? 's' : ''} × {roomCount} room{roomCount > 1 ? 's' : ''}</span>
                   <span>R{subtotal.toLocaleString()}</span>
-                </div>
-                <div className={styles.priceRow}>
-                  <span>Tax ({taxRate}%)</span>
-                  <span>R{taxAmount.toFixed(2)}</span>
                 </div>
                 <div className={styles.totalRow}>
                   <span>Grand Total</span>

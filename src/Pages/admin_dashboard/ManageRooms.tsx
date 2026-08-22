@@ -12,12 +12,17 @@ export const ManageRooms: React.FC = () => {
   const [archivedRooms, setArchivedRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [editingRoomImages, setEditingRoomImages] = useState<string[]>([]);
+  const [editingUnits, setEditingUnits] = useState<any[]>([]);
+  const [newAmenity, setNewAmenity] = useState('');
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterBedType, setFilterBedType] = useState("all");
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -35,12 +40,9 @@ export const ManageRooms: React.FC = () => {
     roomName: "",
     roomType: "",
     newRoomType: "",
-    numberOfRooms: "",
     price: "",
     maxGuests: "",
     bedType: "",
-    unitPrefix: "",
-    startNumber: "1",
     amenities: [] as string[],
     numberOfBeds: "1",
     roomSizeSqm: ""
@@ -62,15 +64,22 @@ export const ManageRooms: React.FC = () => {
     fetchArchivedRooms();
   }, []);
 
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = localStorage.getItem('hotel_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const fetchRooms = async () => {
     try {
-      const res = await fetch(`${API_URL}/admin/rooms?status=active`);
+      const res = await fetch(`${API_URL}/admin/rooms?status=active`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
-      if (data.ok) {
-        setRooms(data.data);
-      }
+      if (!res.ok || !data.ok) throw new Error(data?.error || 'Unable to load rooms');
+      setRooms(data.data);
     } catch (err) {
       console.error('Failed to fetch rooms:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Unable to load rooms');
     } finally {
       setLoading(false);
     }
@@ -78,13 +87,15 @@ export const ManageRooms: React.FC = () => {
 
   const fetchArchivedRooms = async () => {
     try {
-      const res = await fetch(`${API_URL}/admin/rooms?status=archived`);
+      const res = await fetch(`${API_URL}/admin/rooms?status=archived`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
-      if (data.ok) {
-        setArchivedRooms(data.data);
-      }
+      if (!res.ok || !data.ok) throw new Error(data?.error || 'Unable to load archived rooms');
+      setArchivedRooms(data.data);
     } catch (err) {
       console.error('Failed to fetch archived rooms:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Unable to load archived rooms');
     }
   };
 
@@ -105,15 +116,52 @@ export const ManageRooms: React.FC = () => {
     }));
   };
 
+  const handleAddAmenity = () => {
+    const amenity = newAmenity.trim();
+    if (!amenity) return;
+    setFormData(prev => prev.amenities.includes(amenity)
+      ? prev
+      : { ...prev, amenities: [...prev.amenities, amenity] });
+    setNewAmenity('');
+  };
+
+  const handleImageSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const validImages = files.filter((file) => file.type.startsWith('image/') && file.size <= 10 * 1024 * 1024);
+
+    if (files.length !== validImages.length) {
+      setErrorMessage('Please select image files no larger than 10MB each.');
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+    if (pendingImages.length + validImages.length > 10) {
+      setErrorMessage('You can upload up to 10 images when creating a room.');
+      setTimeout(() => setErrorMessage(null), 5000);
+      return;
+    }
+    setPendingImages((current) => [...current, ...validImages]);
+    event.target.value = '';
+  };
+
+  const removePendingImage = (index: number) => {
+    setPendingImages((current) => current.filter((_, imageIndex) => imageIndex !== index));
+  };
+
+  const uploadRoomImages = async (roomId: string, images: File[]) => {
+    if (images.length === 0) return;
+    const formData = new FormData();
+    images.forEach((image) => formData.append('images', image));
+    const response = await fetch(`${API_URL}/admin/rooms/${roomId}/images`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data?.error || 'Room was created, but the images could not be uploaded.');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const count = parseInt(formData.numberOfRooms || "0", 10);
-    const start = parseInt(formData.startNumber || "1", 10);
-
-    const units = Array.from({ length: Math.max(count, 0) }, (_, i) => ({
-      unitNumber: `${formData.unitPrefix}${start + i}`
-    }));
-
+    setSubmitting(true);
     const payload = {
       roomName: formData.roomName,
       roomType: formData.roomType === "__new" ? formData.newRoomType : formData.roomType,
@@ -123,7 +171,8 @@ export const ManageRooms: React.FC = () => {
       numberOfBeds: Number(formData.numberOfBeds),
       roomSizeSqm: Number(formData.roomSizeSqm || 0),
       amenities: formData.amenities,
-      units
+      // Each room type receives one unit automatically. Existing units are retained on edit.
+      units: editingRoomId ? editingUnits : [{ unitNumber: '1' }]
     };
 
     try {
@@ -134,36 +183,51 @@ export const ManageRooms: React.FC = () => {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `Failed to ${editingRoomId ? 'update' : 'create'} room`);
+
+      if (!editingRoomId && pendingImages.length > 0) {
+        await uploadRoomImages(data.data.id, pendingImages);
+      }
       
       setShowForm(false);
       setEditingRoomId(null);
-      setSuccessMessage(`Room ${editingRoomId ? 'updated' : 'created'} successfully!`);
+      setEditingRoomImages([]);
+      setEditingUnits([]);
+      setNewAmenity('');
+      setSuccessMessage(`Room ${editingRoomId ? 'updated' : 'created'} successfully${pendingImages.length > 0 && !editingRoomId ? ' with images' : ''}!`);
+      setPendingImages([]);
+      setFormData({
+        roomName: '', roomType: '', newRoomType: '', price: '', maxGuests: '', bedType: '',
+        amenities: [], numberOfBeds: '1', roomSizeSqm: ''
+      });
       setTimeout(() => setSuccessMessage(null), 3000);
-      fetchRooms(); // ← Refresh list
+      await fetchRooms();
     } catch (err: any) {
       setErrorMessage(err.message || 'Error creating/updating room');
       setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleCancel = () => {
     setShowForm(false);
     setEditingRoomId(null);
+    setEditingRoomImages([]);
+    setEditingUnits([]);
+    setNewAmenity('');
+    setPendingImages([]);
     setFormData({
       roomName: "",
       roomType: "",
       newRoomType: "",
-      numberOfRooms: "",
       price: "",
       maxGuests: "",
       bedType: "",
-      unitPrefix: "",
-      startNumber: "1",
       amenities: [] as string[],
       numberOfBeds: "1",
       roomSizeSqm: ""
@@ -172,21 +236,34 @@ export const ManageRooms: React.FC = () => {
 
   const handleEditRoom = (room: any) => {
     setEditingRoomId(room.id);
+    setEditingRoomImages(room.images || []);
+    setEditingUnits(room.units || []);
     setFormData({
       roomName: room.roomName,
       roomType: room.roomType,
       newRoomType: "",
-      numberOfRooms: String(room.units?.length || 0),
       price: String(room.price),
       maxGuests: String(room.maxGuests),
       bedType: room.bedType,
-      unitPrefix: "",
-      startNumber: "1",
       amenities: room.amenities || [],
       numberOfBeds: String(room.numberOfBeds || 1),
       roomSizeSqm: String(room.roomSizeSqm || 0)
     });
+    setPendingImages([]);
     setShowForm(true);
+  };
+
+  const handleImagesUpdatedInForm = async () => {
+    if (!editingRoomId) return;
+    try {
+      const res = await fetch(`${API_URL}/admin/rooms/${editingRoomId}`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data?.error || 'Unable to refresh room images');
+      setEditingRoomImages(data.data.images || []);
+      await fetchRooms();
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Unable to refresh room images');
+    }
   };
 
   const handleArchiveRoom = (roomId: string) => {
@@ -199,7 +276,8 @@ export const ManageRooms: React.FC = () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         try {
           const res = await fetch(`${API_URL}/admin/rooms/${roomId}/archive`, {
-            method: 'PATCH'
+            method: 'PATCH',
+            headers: getAuthHeaders(),
           });
           const data = await res.json();
           
@@ -228,7 +306,8 @@ export const ManageRooms: React.FC = () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         try {
           const res = await fetch(`${API_URL}/admin/rooms/${roomId}/restore`, {
-            method: 'PATCH'
+            method: 'PATCH',
+            headers: getAuthHeaders(),
           });
           const data = await res.json();
           
@@ -257,7 +336,8 @@ export const ManageRooms: React.FC = () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         try {
           const res = await fetch(`${API_URL}/admin/rooms/${roomId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: getAuthHeaders(),
           });
           const data = await res.json();
           
@@ -331,7 +411,10 @@ export const ManageRooms: React.FC = () => {
       
       <div className={styles.headerBar}>
         <h1 className={styles.title}>Manage Rooms</h1>
-        <button className={styles.addButton} onClick={() => setShowForm(true)}>+ Add Room</button>
+        <button className={styles.addButton} onClick={() => {
+          handleCancel();
+          setShowForm(true);
+        }}>+ Add Room</button>
       </div>
 
       {/* Overlay Form */}
@@ -469,26 +552,11 @@ export const ManageRooms: React.FC = () => {
                 </small>
               </div>
 
-              {/* Room Size */}
-              <div className={styles.formGroup}>
-                <label>Room Size (sqm) *</label>
-                <input
-                  type="number"
-                  name="roomSizeSqm"
-                  value={formData.roomSizeSqm}
-                  onChange={handleInputChange}
-                  required
-                  min="1"
-                  step="0.1"
-                  placeholder="e.g., 28.5"
-                />
-              </div>
-
               {/* Amenities */}
               <div className={styles.formGroup}>
                 <label>Amenities</label>
                 <div className={styles.amenitiesGrid}>
-                  {["WiFi", "Bathtub", "Hairdrier", "Electric Kettle", "Mini Bar", "Room Service", "Toiletries", "Air Conditioning", "Smart TV"].map(amenity => (
+                  {[...new Set(["WiFi", "Bathtub", "Hairdrier", "Electric Kettle", "Mini Bar", "Room Service", "Toiletries", "Air Conditioning", "Smart TV", ...formData.amenities])].map(amenity => (
                     <label key={amenity} className={styles.checkboxLabel}>
                       <input
                         type="checkbox"
@@ -499,52 +567,66 @@ export const ManageRooms: React.FC = () => {
                     </label>
                   ))}
                 </div>
-              </div>
-
-              {/* Number of Units */}
-              <div className={styles.formGroup}>
-                <label>Number of Units to Create *</label>
-                <input
-                  type="number"
-                  name="numberOfRooms"
-                  value={formData.numberOfRooms}
-                  onChange={handleInputChange}
-                  required
-                  min="1"
-                  placeholder="e.g., 10"
-                />
-              </div>
-
-              {/* Unit numbering helper */}
-              <div className={styles.formGroup}>
-                <label>Unit Numbering (optional)</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <input
                     type="text"
-                    name="unitPrefix"
-                    value={formData.unitPrefix}
-                    onChange={handleInputChange}
-                    placeholder="Prefix (e.g., 10 for 101,102...)"
+                    value={newAmenity}
+                    onChange={(e) => setNewAmenity(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddAmenity();
+                      }
+                    }}
+                    placeholder="Add a custom amenity"
                   />
+                  <button type="button" onClick={handleAddAmenity}>Add amenity</button>
+                </div>
+              </div>
+
+              {!editingRoomId && (
+                <div className={styles.formGroup}>
+                  <label htmlFor="room-images">Room Images (optional)</label>
                   <input
-                    type="number"
-                    name="startNumber"
-                    value={formData.startNumber}
-                    onChange={handleInputChange}
-                    min="1"
-                    placeholder="Start number (e.g., 1)"
+                    id="room-images"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    multiple
+                    onChange={handleImageSelection}
+                  />
+                  <small>Choose up to 10 JPG, PNG, WEBP, or GIF images (10MB each). They upload when you save the room.</small>
+                  {pendingImages.length > 0 && (
+                    <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                      {pendingImages.map((image, index) => (
+                        <li key={`${image.name}-${index}`} style={{ marginBottom: 4 }}>
+                          {image.name}
+                          <button type="button" onClick={() => removePendingImage(index)} style={{ marginLeft: 8 }}>
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {editingRoomId && (
+                <div className={styles.formGroup}>
+                  <RoomImageUpload
+                    roomId={editingRoomId}
+                    currentImages={editingRoomImages}
+                    onUploadSuccess={handleImagesUpdatedInForm}
                   />
                 </div>
-                <small>Example result: {formData.unitPrefix || "10"}{formData.startNumber || "1"}, {formData.unitPrefix || "10"}{(parseInt(formData.startNumber || "1",10)+1)}</small>
-              </div>
+              )}
 
               {/* Form Actions */}
               <div className={styles.formActions}>
                 <button type="button" onClick={handleCancel} className={styles.cancelBtn}>
                   Cancel
                 </button>
-                <button type="submit" className={styles.submitBtn}>
-                  {editingRoomId ? 'Update Room' : 'Add Room'}
+                <button type="submit" className={styles.submitBtn} disabled={submitting}>
+                  {submitting ? 'Saving...' : editingRoomId ? 'Update Room' : 'Add Room'}
                 </button>
               </div>
             </form>

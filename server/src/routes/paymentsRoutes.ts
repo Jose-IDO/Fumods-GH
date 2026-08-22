@@ -7,9 +7,36 @@ import { userRepository } from '../repositories/userRepository';
 import { bookingService } from '../services/bookingService';
 import { paymentRepository } from '../repositories/paymentRepository';
 import { paymentController } from '../controllers/paymentController';
-import { hotelSettingsRepository } from '../repositories/hotelSettingsRepository';
+import { roomRepository } from '../repositories/roomRepository';
+import { emailService } from '../services/emailService';
 
 const router = Router();
+
+async function sendBookingConfirmationEmail(booking: Awaited<ReturnType<typeof bookingService.confirmByPaymentRef>>) {
+  if (!booking || booking.confirmationEmailSentAt) return;
+
+  try {
+    const [user, room] = await Promise.all([
+      userRepository.findById(booking.userId),
+      roomRepository.findById(booking.roomId),
+    ]);
+    if (!user) return;
+
+    const sent = await emailService.sendBookingConfirmationEmail({
+      email: user.email,
+      name: `${user.firstName} ${user.lastName}`,
+      firstName: user.firstName,
+      bookingId: booking.id,
+      roomName: room?.roomName || room?.roomType || 'Your room',
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      totalPrice: booking.totalPrice,
+    });
+    if (sent) await bookingRepository.markConfirmationEmailSent(booking.id);
+  } catch (error) {
+    console.error('Failed to send booking confirmation email:', error);
+  }
+}
 
 // POST /payments/paystack/start
 router.post('/paystack/start', authenticate, async (req, res) => {
@@ -27,21 +54,8 @@ router.post('/paystack/start', authenticate, async (req, res) => {
     const user = await userRepository.findById(booking.userId);
     if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
 
-    // Fetch tax rate from settings
-    let taxRate = 15; // Default 15%
-    try {
-      const settings = await hotelSettingsRepository.get();
-      if (settings?.taxRate) {
-        taxRate = settings.taxRate;
-      }
-    } catch (err) {
-      console.warn('Failed to fetch tax rate, using default 15%:', err);
-    }
-
-    // Calculate grand total with tax
     const subtotal = Number(booking.totalPrice);
-    const taxAmount = (subtotal * taxRate) / 100;
-    const grandTotal = subtotal + taxAmount;
+    const grandTotal = subtotal;
 
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
     const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || 'http://localhost:5173';
@@ -49,7 +63,7 @@ router.post('/paystack/start', authenticate, async (req, res) => {
       return res.status(500).json({ ok: false, error: 'PAYSTACK_SECRET_KEY not configured' });
     }
 
-    const amountMinor = Math.round(grandTotal * 100); // cents, including tax
+    const amountMinor = Math.round(grandTotal * 100);
     const reference = booking.paymentReference || `bk_${booking.id}`;
 
     // Persist reference on booking if not already set
@@ -130,7 +144,8 @@ router.post('/paystack/webhook', express.raw({ type: 'application/json' }), asyn
       });
 
       // Confirm booking
-      await bookingService.confirmByPaymentRef(reference);
+      const confirmed = await bookingService.confirmByPaymentRef(reference);
+      await sendBookingConfirmationEmail(confirmed);
     }
 
     res.status(200).send('ok');
@@ -173,6 +188,7 @@ router.get('/paystack/verify', authenticate, async (req, res) => {
 
       // Confirm booking by reference (idempotent)
       const confirmed = await bookingService.confirmByPaymentRef(reference);
+      await sendBookingConfirmationEmail(confirmed);
       return res.json({ ok: true, data: { verified: true, booking: confirmed } });
     }
 

@@ -7,7 +7,7 @@ export class RoomService {
     return roomRepository.findAll(status);
   }
 
-  async getRoomById(id: string): Promise<Room | undefined> {
+  async getRoomById(id: string): Promise<Room | null> {
     return roomRepository.findById(id);
   }
 

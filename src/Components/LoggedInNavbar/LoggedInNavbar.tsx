@@ -122,8 +122,8 @@ export const LoggedInNavbar = () => {
   return (
     <nav className={styles.navbar}>
       <div className={styles.logoSection} onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
-        <img src={Logo} alt="Delta Hotel Logo" style={{width: '40px', height: '40px'}} />
-        <h2 className={styles.brandName}>Delta Hotels</h2>
+        <img src={Logo} alt="Fumods Guesthouse logo" style={{width: '40px', height: '40px'}} />
+        <h2 className={styles.brandName}>Fumods Guesthouse</h2>
       </div>
 
 

@@ -15,14 +15,14 @@ const PrivacyPolicyOverlay: React.FC<PrivacyPolicyOverlayProps> = ({ onClose }) 
         
         <div className={styles.header}>
           <h2 className={styles.title}>Privacy Policy</h2>
-          <p className={styles.subtitle}>Delta Hotel - Protection of Personal Information</p>
+          <p className={styles.subtitle}>Fumods Guesthouse - Protection of Personal Information</p>
         </div>
 
         <div className={styles.body}>
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>1. Introduction</h3>
             <p className={styles.text}>
-              Delta Hotel ("we," "our," or "us") is committed to protecting your personal information in accordance with the Protection of Personal Information Act (POPIA) of South Africa. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.
+              Fumods Guesthouse ("we," "our," or "us") is committed to protecting your personal information in accordance with the Protection of Personal Information Act (POPIA) of South Africa. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.
             </p>
           </section>
 
@@ -127,10 +127,10 @@ const PrivacyPolicyOverlay: React.FC<PrivacyPolicyOverlayProps> = ({ onClose }) 
               If you have any questions about this Privacy Policy or wish to exercise your rights, please contact us at:
             </p>
             <p className={styles.contact}>
-              <strong>Delta Hotel</strong><br />
+              <strong>Fumods Guesthouse</strong><br />
               Email: privacy@deltahotel.co.za<br />
               Phone: +27 (0) 12 345 6789<br />
-              Address: 1 Mark Shuttleworth Street, Lynwood, Pretoria, 0087, South Africa
+              Address: Fumods Guesthouse — see our Google Maps location.
             </p>
           </section>
 

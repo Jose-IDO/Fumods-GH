@@ -1,11 +1,14 @@
+import '../config/env';
 import bcrypt from 'bcrypt';
 import jwt, { SignOptions, Secret } from 'jsonwebtoken';
 import { userRepository } from '../repositories/userRepository';
 import { RegisterPayload, LoginPayload, AuthResponse, JWTPayload, User } from '../types/user.types';
+import { emailService } from './emailService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const SALT_ROUNDS = 10;
+const ENABLE_FALLBACK_AUTH = process.env.ENABLE_FALLBACK_AUTH === 'true';
 
 class AuthService {
   // Fallback users for offline/dev mode (when DB is unavailable)
@@ -106,6 +109,12 @@ class AuthService {
       phone: payload.phone
     });
 
+    try {
+      await emailService.sendWelcomeEmail(user);
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+    }
+
     // Generate JWT token
     const token = this.generateToken(user);
 
@@ -152,8 +161,12 @@ class AuthService {
       };
     }
 
-    // Fallback path ONLY when DB errored
+    // Fallback path ONLY when DB is unavailable and explicitly enabled
     if (dbError) {
+      if (!ENABLE_FALLBACK_AUTH) {
+        throw new Error('Authentication service unavailable');
+      }
+
       const fallback = this.fallbackUsers.find(f => f.email.toLowerCase() === payload.email.toLowerCase());
       if (!fallback) {
         throw new Error('Invalid email or password');
@@ -162,7 +175,7 @@ class AuthService {
       if (!ok) {
         throw new Error('Invalid email or password');
       }
-  const token = this.generateToken(fallback.user);
+      const token = this.generateToken(fallback.user);
       return {
         user: this.sanitizeUser(fallback.user),
         token,
@@ -200,10 +213,15 @@ class AuthService {
       // Try DB first
       const dbUser = await userRepository.findById(decoded.userId);
       if (dbUser) return dbUser;
-      // Fallback by email if DB is unavailable or user doesn’t exist in DB
+
+      if (!ENABLE_FALLBACK_AUTH) return null;
+
+      // Fallback by email only when fallback auth is enabled
       const fb = this.fallbackUsers.find(f => f.user.email.toLowerCase() === decoded.email.toLowerCase());
       return fb ? fb.user : null;
     } catch (error) {
+      if (!ENABLE_FALLBACK_AUTH) return null;
+
       // Try fallback solely from token email
       try {
         const decoded = this.verifyToken(token);

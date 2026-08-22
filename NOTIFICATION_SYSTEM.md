@@ -1,5 +1,7 @@
 # Notification System Documentation
 
+> NOTE: This document contains legacy PostgreSQL/Supabase examples. The current backend runtime has been migrated to Firebase Firestore and no longer uses SQL-based persistence.
+
 ## Overview
 The notification bell system allows users to receive real-time notifications for booking confirmations, booking updates, and promotional messages from the hotel.
 

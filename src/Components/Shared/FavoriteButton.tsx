@@ -11,8 +11,8 @@ interface FavoriteButtonProps {
 }
 
 /**
- * Heart button that matches Delta Hotel styling.
- * Uses Delta Hotel red gradient (#F93448).
+ * Heart button that matches Fumods Guesthouse styling.
+ * Uses the Fumods Guesthouse red gradient (#F93448).
  */
 const FavoriteButton: React.FC<FavoriteButtonProps> = ({
   id,

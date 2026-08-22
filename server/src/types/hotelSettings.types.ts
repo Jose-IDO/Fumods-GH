@@ -25,6 +25,7 @@ export interface HotelSettings {
   currency: string;
   cancellationPolicy?: string;
   termsAndConditions?: string;
+  faqs?: Array<{ question: string; answer: string }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,4 +56,5 @@ export interface UpdateHotelSettingsDTO {
   currency?: string;
   cancellationPolicy?: string;
   termsAndConditions?: string;
+  faqs?: Array<{ question: string; answer: string }>;
 }

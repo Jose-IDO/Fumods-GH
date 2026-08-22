@@ -1,4 +1,7 @@
 # Database Hosting Guide - Step by Step
+
+> NOTE: This guide documents legacy Supabase/PostgreSQL hosting and is not aligned with the current Firebase Firestore backend. Use it only for reference while migrating or archiving old documentation.
+
 ## Simplest Method: Supabase (Free PostgreSQL Database)
 
 This guide will walk you through hosting your PostgreSQL database online using Supabase, which is the simplest and easiest free option available.

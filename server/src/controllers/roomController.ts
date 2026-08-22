@@ -7,6 +7,31 @@ import { Readable } from 'stream';
 import { roomRepository } from '../repositories/roomRepository';
 
 export class RoomController {
+  // Public room catalogue. Archived rooms must never be exposed to guests.
+  async getPublicRooms(_req: Request, res: Response): Promise<void> {
+    try {
+      const rooms = await roomService.getAllRooms('active');
+      res.json({ ok: true, data: rooms });
+    } catch (error) {
+      console.error('Error fetching public rooms:', error);
+      res.status(500).json({ ok: false, error: 'Failed to fetch rooms' });
+    }
+  }
+
+  async getPublicRoomById(req: Request, res: Response): Promise<void> {
+    try {
+      const room = await roomService.getRoomById(req.params.id);
+      if (!room || room.status !== 'active') {
+        res.status(404).json({ ok: false, error: 'Room not found' });
+        return;
+      }
+      res.json({ ok: true, data: room });
+    } catch (error) {
+      console.error('Error fetching public room:', error);
+      res.status(500).json({ ok: false, error: 'Failed to fetch room' });
+    }
+  }
+
   // Get all rooms, optionally filtered by status
   async getAllRooms(req: Request, res: Response): Promise<void> {
     try {
@@ -146,10 +171,14 @@ export class RoomController {
   async addRoomReview(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params; // room ID
-      const { name, rating, comment } = req.body;
+      const { rating, comment } = req.body;
+      const authenticatedUser = req.user as any;
+      const name = `${authenticatedUser?.firstName || ''} ${authenticatedUser?.lastName || ''}`.trim()
+        || authenticatedUser?.email
+        || 'Guest';
 
-      if (!name || !rating || !comment) {
-        res.status(400).json({ ok: false, error: 'Name, rating, and comment are required' });
+      if (!rating || !comment || Number(rating) < 1 || Number(rating) > 5) {
+        res.status(400).json({ ok: false, error: 'A rating from 1 to 5 and a comment are required' });
         return;
       }
 

@@ -11,7 +11,9 @@ function loadEnvFile(filePath: string): boolean {
 
   dotenv.config({
     path: filePath,
-    override: false,
+    // Project configuration must take precedence over stale values inherited by
+    // a long-running development server.
+    override: true,
   });
 
   return true;

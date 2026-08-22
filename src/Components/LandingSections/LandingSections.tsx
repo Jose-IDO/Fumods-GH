@@ -1,7 +1,6 @@
 // src/Components/LandingSections/LandingSections.tsx
 import React, { useEffect, useState } from "react";
 import styles from "./LandingSections.module.css";
-import { DestinationsSection } from "../DestinationsSection/DestinationsSection";
 import { API_URL } from "../../config/api";
 type Event = {
   id: number;
@@ -80,20 +79,14 @@ const LandingSections: React.FC = () => {
           ))}
         </div>
       </section>
-     {/* ---------- DESTINATIONS SECTION ---------- */}
-      <section className={styles.destinationsSection}>
-        <h2 className={styles.sectionTitle}>Destinations</h2>
-        <DestinationsSection />
-      </section>
-
       {/* ---------- ADDRESS SECTION ---------- */}
       <section className={styles.addressSection}>
         <h2 className={styles.sectionTitle}>Our Address</h2>
         <div className={styles.addressCard}>
           <div className={styles.mapPlaceholder}>
             <iframe
-              title="Delta Hotel location"
-              src="https://www.google.com/maps?q=1+Mark+Shuttleworth+Street,+Lynwood,+Pretoria,+0087,+South+Africa&hl=en&z=15&output=embed"
+              title="Fumods Guesthouse location"
+              src="https://maps.google.com/maps?q=Fumods%20Guesthouse&hl=en&z=15&output=embed"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               allowFullScreen
@@ -101,11 +94,9 @@ const LandingSections: React.FC = () => {
             />
           </div>
           <div className={styles.addressDetails}>
-            <p>1 Mark Shuttleworth Street</p>
-            <p>Lynwood, Pretoria</p>
-            <p>0087, South Africa</p>
+            <p>Fumods Guesthouse</p>
             <a
-              href="https://www.google.com/maps/search/?api=1&query=1+Mark+Shuttleworth+Street,+Lynwood,+Pretoria,+0087,+South+Africa"
+              href="https://maps.app.goo.gl/yTHAxD6AntoTAtgPA"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.mapLink}
@@ -133,7 +124,7 @@ const LandingSections: React.FC = () => {
                   <div className={styles.linkOverlay}>
                     <h5 className={styles.overlayTitle}>About Us</h5>
                     <p className={styles.overlayContent}>
-                      Delta Hotel is a premier hospitality destination located in the heart of Pretoria, South Africa. We offer world-class accommodation, exceptional service, and unforgettable experiences for both business and leisure travelers...more
+                      Fumods Guesthouse offers welcoming accommodation, thoughtful service, and memorable stays for both business and leisure travellers...more
                     </p>
                   </div>
                 )}
@@ -175,25 +166,13 @@ const LandingSections: React.FC = () => {
           </div>
 
           <div className={styles.footerColumn}>
-            <h4>Follow Us</h4>
-            <div className={styles.socialIcons}>
-              <div className={styles.iconPlaceholder}>FB</div>
-              <div className={styles.iconPlaceholder}>IG</div>
-              <div className={styles.iconPlaceholder}>X</div>
-            </div>
-          </div>
-
-          <div className={styles.footerColumn}>
             <h4>Address</h4>
-            <p>1 Mark Shuttleworth Street</p>
-            <p>Lynwood</p>
-            <p>Pretoria, 0087</p>
-            <p>South Africa</p>
+            <p>Fumods Guesthouse</p>
           </div>
         </div>
 
         <div className={styles.footerBottom}>
-          <p>© 2025 Delta Hotel. All rights reserved.</p>
+          <p>© 2025 Fumods Guesthouse. All rights reserved.</p>
         </div>
       </footer>
 
@@ -204,9 +183,9 @@ const LandingSections: React.FC = () => {
             <button className={styles.modalCloseButton} onClick={() => setOpenModal(null)}>✕</button>
             <h2 className={styles.modalTitle}>About Us</h2>
             <div className={styles.modalBody}>
-              <p>Delta Hotel is a premier hospitality destination located in the heart of Pretoria, South Africa. We offer world-class accommodation, exceptional service, and unforgettable experiences for both business and leisure travelers.</p>
+              <p>Fumods Guesthouse offers welcoming accommodation, thoughtful service, and memorable stays for both business and leisure travellers.</p>
               <p>Our hotel features elegantly designed rooms and suites, state-of-the-art facilities, and a commitment to excellence that has made us a trusted name in the hospitality industry.</p>
-              <p>At Delta Hotel, we believe in creating memorable experiences for our guests. Whether you're visiting for business or pleasure, our dedicated team is here to ensure your stay is comfortable, enjoyable, and exceeds your expectations.</p>
+              <p>At Fumods Guesthouse, we believe in creating memorable experiences for our guests. Whether you're visiting for business or pleasure, our dedicated team is here to ensure your stay is comfortable and enjoyable.</p>
               <p>We pride ourselves on our attention to detail, personalized service, and commitment to sustainability. Our hotel combines modern amenities with warm hospitality, creating the perfect environment for relaxation and productivity.</p>
             </div>
           </div>
@@ -222,11 +201,11 @@ const LandingSections: React.FC = () => {
               <p>We're here to help! Get in touch with our friendly team for reservations, inquiries, or any special requests.</p>
               <div style={{ marginTop: '1.5rem' }}>
                 <p><strong>Address:</strong></p>
-                <p>1 Mark Shuttleworth Street<br />Lynwood, Pretoria<br />0087, South Africa</p>
+                <p>Fumods Guesthouse<br /><a href="https://maps.app.goo.gl/yTHAxD6AntoTAtgPA" target="_blank" rel="noopener noreferrer">View on Google Maps</a></p>
               </div>
               <div style={{ marginTop: '1.5rem' }}>
                 <p><strong>Phone:</strong></p>
-                <p>+27 (0) 12 345 6789</p>
+                <p>084 229 8842<br />084 451 0707</p>
               </div>
               <div style={{ marginTop: '1.5rem' }}>
                 <p><strong>Email:</strong></p>

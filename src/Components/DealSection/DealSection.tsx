@@ -149,8 +149,8 @@ const DealsSection: React.FC = () => {
 
           return {
             id: deal.id.toString(),
-            hotel: deal.roomName || deal.title || "Delta Hotel",
-            location: "1 Mark Shuttleworth Street, Lynwood, Pretoria, 0087, South Africa",
+            hotel: deal.roomName || deal.title || "Fumods Guesthouse",
+            location: "Fumods Guesthouse",
             nights,
             rating: 4, // Default rating, can be enhanced later
             views: Math.floor(Math.random() * 1000) + 100, // Placeholder views
@@ -227,7 +227,7 @@ const DealsSection: React.FC = () => {
           <h2 className={styles.heading}>Deals For The Weekend</h2>
         </div>
         <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p>No active deals available at the moment.</p>
+          <p>There are no deals available currently.</p>
         </div>
       </section>
     );

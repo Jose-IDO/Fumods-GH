@@ -12,7 +12,7 @@ const PaymentPage: React.FC = () => {
   
   const {
     bookingId,
-    hotelName = "Delta Hotel",
+    hotelName = "Fumods Guesthouse",
     roomType = "Luxury Suite",
     roomImage,
     checkIn,

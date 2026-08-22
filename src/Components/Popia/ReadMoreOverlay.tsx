@@ -29,7 +29,7 @@ const ReadMoreOverlay: React.FC<ReadMoreOverlayProps> = ({ onClose }) => {
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>What Information Do We Collect?</h3>
             <p className={styles.text}>
-              When you use Delta Hotel's services, we may collect:
+              When you use Fumods Guesthouse's services, we may collect:
             </p>
             <ul className={styles.list}>
               <li><strong>Identity Information:</strong> Name, ID number, date of birth</li>
@@ -151,10 +151,10 @@ const ReadMoreOverlay: React.FC<ReadMoreOverlayProps> = ({ onClose }) => {
               If you have questions about how we handle your personal information or wish to exercise your rights, please contact our Data Protection Officer:
             </p>
             <p className={styles.contact}>
-              <strong>Delta Hotel - Data Protection Officer</strong><br />
+              <strong>Fumods Guesthouse - Data Protection Officer</strong><br />
               Email: privacy@deltahotel.co.za<br />
               Phone: +27 (0) 12 345 6789<br />
-              Address: 1 Mark Shuttleworth Street, Lynwood, Pretoria, 0087, South Africa<br />
+              Address: Fumods Guesthouse<br />
               <br />
               <strong>Information Regulator of South Africa</strong><br />
               Website: www.justice.gov.za/inforeg<br />

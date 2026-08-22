@@ -80,7 +80,7 @@ export const bookingController = {
         return {
           id: b.id,
           bookingId: b.id,
-          hotelName: 'Delta Hotel',
+          hotelName: 'Fumods Guesthouse',
            roomType: room?.roomType || 'Room',
            roomName: room?.roomName || 'Room',
           roomId: b.roomId,
@@ -118,7 +118,7 @@ export const bookingController = {
         booking: {
           ...booking,
           roomType: room?.roomType || 'Room',
-          hotelName: 'Delta Hotel',
+          hotelName: 'Fumods Guesthouse',
         },
       });
     } catch (e: any) {

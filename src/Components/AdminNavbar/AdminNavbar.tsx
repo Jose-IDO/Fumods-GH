@@ -25,7 +25,7 @@ export const AdminNavbar: React.FC = () => {
           <div className={styles.homeIconWrapper} onClick={handleHomeClick}>
             <img src={HomeIcon} alt="Home" className={styles.homeIcon} />
           </div>
-          <span>Delta Hotel Booking</span>
+          <span>Fumods Guesthouse</span>
         </div>
         <div className={styles.profileSection}>
           <img 

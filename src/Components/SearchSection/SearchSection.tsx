@@ -17,7 +17,7 @@ const SearchSection: React.FC = () => {
   useEffect(() => {
     const fetchRoomTypes = async () => {
       try {
-        const res = await fetch(`${API_URL}/admin/rooms?status=active`);
+        const res = await fetch(`${API_URL}/rooms`);
         const json = await res.json();
         if (res.ok && json.ok) {
           const types = new Set<string>();
