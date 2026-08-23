@@ -7,6 +7,7 @@ import { useFavorites } from "../../contexts/FavoritesContext";
 import ShareModal from "../../Components/Shared/ShareModal";
 import shareIcon from "../../assets/share-1-svgrepo-com.svg";
 import { API_URL } from "../../config/api";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Star rating component
 const STAR_SVG = ({ filled }: { filled: boolean }) => (
@@ -29,10 +30,10 @@ import room4 from "../../assets/room1d.jpg";
 import room5 from "../../assets/room1E.jpg";
 
 // Import hotel images for gallery
-import hotelMain from "../../assets/Hotel-Room-1.jpg";
-import hotelImage1 from "../../assets/Hotel-Room-2.jpg";
-import hotelImage2 from "../../assets/Hotel-Room-3.jpg";
-import hotelImage3 from "../../assets/Santorini_1.jpeg";
+import hotelMain from "../../assets/Santorini_1.jpeg";
+import hotelImage1 from "../../assets/Santorini_2.jpg";
+import hotelImage2 from "../../assets/Santorini_3.jpg";
+import hotelImage3 from "../../assets/Santorini_4.jpg";
 
 const HotelDetails: React.FC = () => {
   // const { id } = useParams<{ id: string }>();
@@ -41,6 +42,8 @@ const HotelDetails: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toggleFavorite, isFavorite } = useFavorites();
+  const { isAuthenticated } = useAuth();
+  const [favoritePrompt, setFavoritePrompt] = useState(false);
   //const hotelFavoriteId = "hotel";
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [shareModal, setShareModal] = useState<{ isOpen: boolean; roomId: string | null; roomName: string }>({
@@ -575,6 +578,10 @@ const HotelDetails: React.FC = () => {
                         id={room.id}
                         isFavorite={isFavorite(room.id)}
                         onToggle={(id) => {
+                          if (!isAuthenticated) {
+                            setFavoritePrompt(true);
+                            return;
+                          }
                           toggleFavorite({
                             id,
                             type: "room",
@@ -686,6 +693,17 @@ const HotelDetails: React.FC = () => {
                 ✕
               </button>
               <img src={selectedImage} alt="Full size view" className={styles.fullImage} />
+            </div>
+          </div>
+        )}
+        {favoritePrompt && (
+          <div className={styles.imageOverlay} onClick={() => setFavoritePrompt(false)}>
+            <div className={styles.overlayContent} onClick={(e) => e.stopPropagation()}>
+              <button className={styles.closeButton} onClick={() => setFavoritePrompt(false)}>✕</button>
+              <h2>Save favourites</h2>
+              <p>Please sign in or create an account to favourite this room.</p>
+              <button className={styles.mapBtn} onClick={() => navigate('/signin')}>Sign in</button>{' '}
+              <button className={styles.mapBtn} onClick={() => navigate('/signup')}>Sign up</button>
             </div>
           </div>
         )}

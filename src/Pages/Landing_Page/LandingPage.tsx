@@ -10,7 +10,6 @@ import santorini2 from '../../assets/Santorini_2.jpg'
 import santorini3 from '../../assets/Santorini_3.jpg'
 import santorini4 from '../../assets/Santorini_4.jpg'
 import coffeecup from '../../assets/coffee_cup.png'
-import sofa from '../../assets/sofa.png'
 import wifi from '../../assets/wifi-signal.png'
 // import blackheart from '../../assets/heart-black.png'
 
@@ -91,11 +90,6 @@ export const LandingPage = () => {
             <p className={styles.paragraph1}>Stay connected wherever you are in the hotel with our fast, free Wi-Fi. Stream, work, or chat without interruptions.</p>
           </div>
 
-
-          <div className={styles.offerings1}>
-            <img src={sofa} alt={'sofa icon image'} style={{height:'150px', width:'150px'}}/>
-            <p className={styles.paragraph1}>Experience comfort at its best with fully air-conditioned rooms. Adjust the temperature to your liking and relax in cool comfort.</p>
-          </div>
 
         </div>
 

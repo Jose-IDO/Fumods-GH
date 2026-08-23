@@ -295,7 +295,8 @@
 
 .roomImagePlaceholder {
   background: #e5e7eb;
-  height: 200px;
+  aspect-ratio: 1 / 1;
+  height: auto;
   border-radius: 8px;
   display: flex;
   align-items: center;

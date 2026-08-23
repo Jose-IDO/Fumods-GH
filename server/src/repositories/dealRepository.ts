@@ -77,16 +77,14 @@ export const dealRepository = {
   },
 
   async getActiveDeals(): Promise<DealWithRoom[]> {
-    const now = admin.firestore.Timestamp.now();
+    const now = new Date();
     const snapshot = await dealsCollection
       .where('isActive', '==', true)
-      .where('startDate', '<=', now)
-      .where('endDate', '>=', now)
-      .orderBy('startDate')
       .get();
     const deals = snapshot.docs
       .map(documentToDeal)
-      .filter((deal): deal is Deal => deal !== null);
+      .filter((deal): deal is Deal => Boolean(deal && deal.startDate <= now && deal.endDate >= now))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
     return Promise.all(deals.map(hydrateDealWithRoom));
   },
 

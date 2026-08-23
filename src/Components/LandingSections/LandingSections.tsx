@@ -1,53 +1,21 @@
 // src/Components/LandingSections/LandingSections.tsx
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import styles from "./LandingSections.module.css";
-import { API_URL } from "../../config/api";
-type Event = {
-  id: number;
-  title: string;
-  date: string;
-  description: string;
-  imageUrl?: string; // frontend-friendly URL
-};
+type Event = { id: number; title: string; date: string; description: string; imageUrl?: string };
 
 type LinkType = 'about' | 'contact' | 'privacy' | null;
 
 const LandingSections: React.FC = () => {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const events: Event[] = [];
+  const loading = false;
+  const error: string | null = null;
   const [hoveredLink, setHoveredLink] = useState<LinkType>(null);
   const [openModal, setOpenModal] = useState<LinkType>(null);
-
-  const fetchEvents = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`${API_URL}/admin/events`);
-      const json = await res.json();
-
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Failed to fetch events");
-      }
-
-      // Events now use Cloudinary URLs directly (no mapping needed)
-      setEvents(json.data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEvents();
-  }, []);
 
   return (
     <div className={styles.landingSections}>
       {/* ---------- UPCOMING EVENTS ---------- */}
-      <section className={styles.upcomingSection}>
+      <section className={styles.upcomingSection} style={{ display: 'none' }} aria-hidden="true">
         <h2 className={styles.sectionTitle}>Upcoming Events</h2>
 
         {loading && <div>Loading events…</div>}
@@ -209,7 +177,7 @@ const LandingSections: React.FC = () => {
               </div>
               <div style={{ marginTop: '1.5rem' }}>
                 <p><strong>Email:</strong></p>
-                <p>info@deltahotel.co.za</p>
+                <p><a href="mailto:mossbeee@gmail.com">mossbeee@gmail.com</a></p>
               </div>
               <div style={{ marginTop: '1.5rem' }}>
                 <p><strong>Business Hours:</strong></p>

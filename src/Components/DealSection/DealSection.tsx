@@ -207,27 +207,14 @@ const DealsSection: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <section className={styles.section}>
-        <div className={styles.headerRow}>
-          <h2 className={styles.heading}>Deals For The Weekend</h2>
-        </div>
-        <div style={{ textAlign: 'center', padding: '40px', color: '#F93448' }}>
-          <p>Error loading deals: {error}</p>
-        </div>
-      </section>
-    );
-  }
-
-  if (deals.length === 0) {
+  if (error || deals.length === 0) {
     return (
       <section className={styles.section}>
         <div className={styles.headerRow}>
           <h2 className={styles.heading}>Deals For The Weekend</h2>
         </div>
         <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p>There are no deals available currently.</p>
+          <p>Hot Deals coming soon!</p>
         </div>
       </section>
     );
