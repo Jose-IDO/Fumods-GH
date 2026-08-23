@@ -190,14 +190,13 @@ function AppContent() {
 }
 
 function App() {
-  const basename = import.meta.env.PROD ? '/Mlab_Hotel_Team_Delta' : '';
   return (
     <ErrorBoundary>
       <Provider store={store}>
         <PopiaProvider>
           <AuthProvider>
             <FavoritesProvider>
-              <Router basename={basename}>
+              <Router>
                 <AppContent />
               </Router>
             </FavoritesProvider>
