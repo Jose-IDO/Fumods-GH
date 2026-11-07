@@ -49,7 +49,7 @@ export const bookingController = {
       }
 
       const io = getIO();
-      io.emit("newBooking", {
+      io?.emit("newBooking", {
         message: `New booking created by user ${userId}`,
         booking,
       });

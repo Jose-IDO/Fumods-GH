@@ -27,3 +27,7 @@ PAYSTACK_SETUP.md
 GOOGLE_OAUTH_SETUP.md
 DEALS_MANAGEMENT.md
 CLOUDINARY_IMPLEMENTATION.md
+.vercel
+.env*
+!.env.example
+!server/.env.example

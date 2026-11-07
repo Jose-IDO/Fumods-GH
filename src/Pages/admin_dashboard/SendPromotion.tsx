@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import styles from './SendPromotion.module.css';
+import { API_URL } from '../../config/api';
 
 export const SendPromotion: React.FC = () => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const API_URL = import.meta.env.VITE_API_URL;
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
