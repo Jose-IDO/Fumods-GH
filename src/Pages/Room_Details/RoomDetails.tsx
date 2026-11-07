@@ -180,7 +180,6 @@ const RoomDetails: React.FC = () => {
           images: uploadedImages,
         };
         setRoom(mapped);
-        setSelectedImage(mapped.image);
 
         // Fetch active deals for this room
         try {
