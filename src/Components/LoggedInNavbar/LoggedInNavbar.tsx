@@ -2,7 +2,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import styles from "./LoggedInNavbar.module.css";
-import Logo from '../../assets/Logo.png';
+import Logo from '../../assets/guest-house/WhatsApp Image 2026-11-06 at 10.08.16.jpeg';
 import SouthAfricaFlag from '../../assets/south-africa-svgrepo-com.svg';
 import { API_URL } from '../../config/api';
 
@@ -122,7 +122,7 @@ export const LoggedInNavbar = () => {
   return (
     <nav className={styles.navbar}>
       <div className={styles.logoSection} onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
-        <img src={Logo} alt="Fumods Guesthouse logo" style={{width: '40px', height: '40px'}} />
+        <img src={Logo} alt="Fumods Guesthouse logo" style={{width: '40px', height: '40px', objectFit: 'contain'}} />
         <h2 className={styles.brandName}>Fumods Guesthouse</h2>
       </div>
 

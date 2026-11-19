@@ -9,10 +9,11 @@ import coffeecup from '../../assets/coffee_cup.png'
 import wifi from '../../assets/wifi-signal.png'
 // import blackheart from '../../assets/heart-black.png'
 
-const images = Object.values(import.meta.glob<string>(
+const images = Object.entries(import.meta.glob<string>(
   '../../assets/guest-house/*.{png,jpg,jpeg,webp}',
   { eager: true, import: 'default' },
-))
+)).filter(([path]) => !path.endsWith('/WhatsApp Image 2026-11-06 at 10.08.16.jpeg'))
+  .map(([, image]) => image)
 
 export const LandingPage = () => {
   const [currentImage, setCurrentImage] = useState(0)

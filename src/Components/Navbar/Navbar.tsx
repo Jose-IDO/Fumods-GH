@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Navbar.module.css";
-import Logo from "../../assets/Logo.png";
+import Logo from "../../assets/guest-house/WhatsApp Image 2026-11-06 at 10.08.16.jpeg";
 import { FaBell } from "react-icons/fa";
 import { useAuth } from "../../contexts/AuthContext";
 import { usePopia } from "../../contexts/PopiaContext";
@@ -135,7 +135,7 @@ export const Navbar: React.FC = () => {
       <div className={styles.navContainer}>
         <div className={styles.SubnavContainer1} onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           <div className={styles.LogoCard}>
-            <img src={Logo} alt="Logo" style={{ width: "50px", height: "50px" }} />
+            <img src={Logo} alt="Fumods Guesthouse logo" style={{ width: "50px", height: "50px", objectFit: "contain" }} />
           </div>
           <div className={styles.logo}>Fumods Hotel</div>
         </div>
