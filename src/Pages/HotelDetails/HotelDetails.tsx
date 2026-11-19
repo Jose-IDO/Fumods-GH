@@ -34,7 +34,6 @@ import room5 from "../../assets/room1E.jpg";
 import hotelMain from "../../assets/guest-house/Modern Grey Home Entrance and Garden.png";
 import hotelImage1 from "../../assets/guest-house/Warm Modern Hotel Bedroom.png";
 import hotelImage2 from "../../assets/guest-house/Modern Neutral Bathroom Interior.png";
-import hotelImage3 from "../../assets/guest-house/Modern Hotel Bedroom with Kitchenette.png";
 
 const HotelDetails: React.FC = () => {
   // const { id } = useParams<{ id: string }>();
@@ -47,7 +46,6 @@ const HotelDetails: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [favoritePrompt, setFavoritePrompt] = useState(false);
   //const hotelFavoriteId = "hotel";
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [shareModal, setShareModal] = useState<{ isOpen: boolean; roomId: string | null; roomName: string }>({
     isOpen: false,
     roomId: null,
@@ -74,24 +72,6 @@ const HotelDetails: React.FC = () => {
     checkOut: string;
     roomCount: number;
   }>>([]);
-  const [hotelSettings, setHotelSettings] = useState<{
-    hotelName: string;
-    tagline: string;
-    description: string;
-    email: string;
-    phone: string;
-    website: string;
-    addressLine1: string;
-    addressLine2?: string;
-    city: string;
-    stateProvince: string;
-    postalCode: string;
-    country: string;
-    checkInTime: string;
-    checkOutTime: string;
-    faqs?: Array<{ question: string; answer: string }>;
-  } | null>(null);
-
   // Apply search parameters from URL on mount
   useEffect(() => {
     const roomType = searchParams.get("roomType");
@@ -107,10 +87,6 @@ const HotelDetails: React.FC = () => {
       }, 500);
     }
   }, [searchParams]);
-
-  const toggleFaq = (index: number) => {
-    setExpandedFaq(expandedFaq === index ? null : index);
-  };
 
   const handleRoomClick = (roomId: string) => {
     // Preserve search params when navigating to room details
@@ -143,26 +119,8 @@ const HotelDetails: React.FC = () => {
   const hotelData = {
     name: "Fumods Guesthouse",
     address: "Fumods Guesthouse",
-    mainImage: hotelMain,
-    galleryImages: [hotelImage1, hotelImage2, hotelImage3],
+    galleryImages: [hotelMain, hotelImage1, hotelImage2],
   };
-
-  // Fetch hotel settings from API
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch(`${API_URL}/settings/public`);
-        const json = await res.json();
-        if (res.ok && json.ok) {
-          setHotelSettings(json.data);
-        }
-      } catch (e) {
-        console.error('Failed to fetch hotel settings:', e);
-      }
-    };
-
-    fetchSettings();
-  }, []);
 
   // Fetch rooms from API and map to UI structure
   useEffect(() => {
@@ -291,63 +249,6 @@ const HotelDetails: React.FC = () => {
     });
   }, [roomsData, selectedRoomType, searchParams, bookedDates]);
 
-  // FAQ data - dynamically including check-in/check-out times from settings
-  const defaultFaqData = [
-    {
-      question: "What time is check-in and check-out?",
-      answer: hotelSettings 
-        ? `Check-in starts at ${hotelSettings.checkInTime} and check-out is before ${hotelSettings.checkOutTime}. Early check-in and late check-out may be available upon request, subject to availability.`
-        : "Check-in starts at 2:00 PM and check-out is before 10:00 AM. Early check-in and late check-out may be available upon request, subject to availability."
-    },
-    {
-      question: "Is the swimming pool heated?",
-      answer: "We only heat our pools in the winter when temperatures are low. The pool is heated from May to September to ensure year-round comfort for our guests."
-    },
-    {
-      question: "Is parking available?",
-      answer: "Yes, secure on-site parking is available for all guests. We offer complimentary valet parking service, and our parking area is monitored 24/7 for your security."
-    },
-    {
-      question: "Is breakfast included in the price?",
-      answer: "Yes, a complimentary breakfast is included for all guests. We serve a buffet-style breakfast with continental and hot meal options from 6:30 AM to 10:30 AM daily."
-    },
-    {
-      question: "Do you offer airport shuttle service?",
-      answer: "Yes, we provide airport shuttle service for a nominal fee. Please contact our concierge at least 24 hours in advance to arrange pickup and drop-off times."
-    },
-    {
-      question: "Are pets allowed at the hotel?",
-      answer: "Unfortunately, we do not allow pets in our hotel rooms, with the exception of registered service animals. We can recommend nearby pet-friendly accommodations if needed."
-    },
-    {
-      question: "Is there a gym or fitness center?",
-      answer: "Yes, our fully equipped fitness center is open 24/7 for all guests. It features cardio equipment, free weights, and yoga mats. Personal training sessions can be arranged upon request."
-    },
-    {
-      question: "Do you have conference or meeting rooms?",
-      answer: "Yes, we have three conference rooms that can accommodate 10 to 100 people. All rooms are equipped with projectors, whiteboards, and high-speed WiFi. Catering services are also available."
-    },
-    {
-      question: "What payment methods do you accept?",
-      answer: "We accept all major credit cards (Visa, Mastercard, American Express), debit cards, and cash payments. Payment is required at check-in or can be processed online when booking."
-    },
-    {
-      question: "Is WiFi available throughout the hotel?",
-      answer: "Yes, complimentary high-speed WiFi is available in all rooms, public areas, and conference facilities. The network name and password will be provided upon check-in."
-    },
-    {
-      question: "Do you offer room service?",
-      answer: "Yes, 24-hour room service is available. Our menu offers a variety of meals, snacks, and beverages. Please call the front desk or use the in-room phone to place your order."
-    },
-    {
-      question: "Can I cancel or modify my reservation?",
-      answer: "Cancellations made at least 48 hours before check-in are eligible for a full refund. Modifications can be made up to 24 hours before arrival, subject to availability."
-    }
-  ];
-  const faqData = hotelSettings?.faqs !== undefined
-    ? hotelSettings.faqs.filter((faq) => faq.question.trim() && faq.answer.trim())
-    : defaultFaqData;
-
   return (
     <>
       <LoggedInNavbar />
@@ -364,17 +265,13 @@ const HotelDetails: React.FC = () => {
         </header>
 
         {/* ---------- IMAGE GALLERY ---------- */}
-        <section className={styles.imageGallery}>
-          <div className={styles.imagePlaceholder} onClick={() => setSelectedImage(hotelData.mainImage)}>
-            <img src={hotelData.mainImage} alt="Main Hotel View" />
-          </div>
-          <div className={styles.imageRow}>
-            {hotelData.galleryImages.map((img, index) => (
-              <div key={index} className={styles.smallImagePlaceholder} onClick={() => setSelectedImage(img)}>
-                <img src={img} alt={`Hotel view ${index + 1}`} />
-              </div>
-            ))}
-          </div>
+        <section className={styles.imageGallery} aria-label="Guest house gallery">
+          {hotelData.galleryImages.map((image, index) => (
+            <button key={image} type="button" className={styles.galleryImage}
+              onClick={() => setSelectedImage(image)} aria-label={`View guest house photo ${index + 1}`}>
+              <img src={image} alt={['Guest house entrance', 'Guest house bedroom', 'Guest house bathroom'][index]} />
+            </button>
+          ))}
         </section>
 
         {/* ---------- ROOMS GRID ---------- */}
@@ -442,50 +339,8 @@ const HotelDetails: React.FC = () => {
           </div>
         </section>
 
-        {/* ---------- FAQ + MAP SIDE-BY-SIDE ---------- */}
-        <section className={styles.infoSplitSection}>
-          {/* FAQ */}
-          <section className={styles.faqSection}>
-            <h2 className={styles.sectionTitle}>Frequently Asked Questions</h2>
-            <div className={styles.faqList}>
-              {faqData.map((faq, index) => (
-                <div key={index} className={styles.faqItem}>
-                  <div 
-                    className={styles.faqHeader}
-                    onClick={() => toggleFaq(index)}
-                  >
-                    <h4>{faq.question}</h4>
-                    <button 
-                      className={`${styles.faqToggle} ${expandedFaq === index ? styles.expanded : ''}`}
-                      aria-label="Toggle answer"
-                    >
-                      <svg 
-                        width="16" 
-                        height="16" 
-                        viewBox="0 0 16 16" 
-                        fill="none" 
-                        xmlns="http://www.w3.org/2000/svg"
-                        className={styles.arrow}
-                      >
-                        <path 
-                          d="M4 6L8 10L12 6" 
-                          stroke="currentColor" 
-                          strokeWidth="2" 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                  {expandedFaq === index && (
-                    <p className={styles.faqAnswer}>{faq.answer}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* MAP */}
+        {/* ---------- LOCATION ---------- */}
+        <section className={styles.locationSection}>
           <section id="hotel-map" className={styles.mapSection}>
             <h2 className={styles.sectionTitle}>Location</h2>
             <div className={styles.mapContainer}>

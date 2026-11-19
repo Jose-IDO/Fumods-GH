@@ -8,7 +8,7 @@ import { useFavorites } from "../../contexts/FavoritesContext";
 import { API_URL } from "../../config/api";
 import {
   Wifi, Wind, Tv, Wine, Palmtree, ConciergeBell, Waves,
-  CircleSlash2, PawPrint, Clock, Volume2, AlertCircle,
+  CircleSlash2, PawPrint, Clock, AlertCircle,
   Sparkles, Coffee, Bath, AirVent
 } from "lucide-react";
 
@@ -141,7 +141,6 @@ const RoomDetails: React.FC = () => {
     if (r.includes('smoking')) return <CircleSlash2 size={32} />;
     if (r.includes('pet')) return <PawPrint size={32} />;
     if (r.includes('check')) return <Clock size={32} />;
-    if (r.includes('quiet')) return <Volume2 size={32} />;
     if (r.includes('damage')) return <AlertCircle size={32} />;
     return <AlertCircle size={32} />;
   };
@@ -443,22 +442,6 @@ const RoomDetails: React.FC = () => {
                     <span className={styles.detailValue}>{room.numberOfBeds} × {room.bedType}</span>
                   </div>
                 </div>
-                <div className={styles.detailItem}>
-                  <span className={styles.detailIcon}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                      <polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline>
-                      <polyline points="7.5 19.79 7.5 14.6 3 12"></polyline>
-                      <polyline points="21 12 16.5 14.6 16.5 19.79"></polyline>
-                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                      <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                    </svg>
-                  </span>
-                  <div className={styles.detailContent}>
-                    <span className={styles.detailLabel}>Room Size</span>
-                    <span className={styles.detailValue}>{room.roomSize} m²</span>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -481,7 +464,7 @@ const RoomDetails: React.FC = () => {
             <div className={styles.rulesSection}>
               <h2>Hotel Rules</h2>
               <div className={styles.rulesContainer}>
-                {['No Smoking', 'No Pets Allowed', 'Check-in: 2:00pm | Check-out: 10:00pm', 'Quiet hours after 10pm', 'Damage to property will incur a fee'].map(r => (
+                {['No Smoking', 'No Pets Allowed', 'Check-in: 2:00pm | Check-out: 10:00pm', 'Damage to property will incur a fee'].map(r => (
                   <div key={r} className={styles.rule}>
                     {getRuleIcon(r)}
                     <span>{r}</span>
