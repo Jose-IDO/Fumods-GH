@@ -19,7 +19,9 @@ const PaymentPage: React.FC = () => {
     checkOut,
     nights = 3,
     adults = 2,
-    children = 0,
+    babies = 0,
+    roomSelections = [],
+    expiresAt,
     pricePerNight = 1200,
     totalPrice = 3600, // This should be the subtotal (without tax)
     subtotal: passedSubtotal,
@@ -143,6 +145,7 @@ const PaymentPage: React.FC = () => {
       <main className={styles.main}>
         <div className={styles.container}>
           {/* LEFT: Booking Summary */}
+          <p style={{gridColumn: '1 / -1'}}>Pending admin confirmation. Confirm by {expiresAt ? new Date(expiresAt).toLocaleString() : '48 hours after booking'}. Payment does not extend this deadline.</p>
           <aside className={styles.bookingSummary}>
             {roomImage && (
               <img src={roomImage} alt={hotelName} className={styles.hotelImg} />
@@ -157,7 +160,7 @@ const PaymentPage: React.FC = () => {
 
               <div className={styles.summaryRow}>
                 <span className={styles.label}>Room:</span>
-                <span className={styles.value}>{roomType}</span>
+                <span className={styles.value}>{roomType}{roomSelections.map((room: {bedType: string}, i: number) => <div key={i}>Room {i + 1}: {room.bedType === 'twin' ? 'Two single beds' : 'Double bed'}</div>)}</span>
               </div>
 
               <div className={styles.summaryRow}>
@@ -172,7 +175,7 @@ const PaymentPage: React.FC = () => {
 
               <div className={styles.summaryRow}>
                 <span className={styles.label}>Guests:</span>
-                <span className={styles.value}>{adults} Adult{adults > 1 ? 's' : ''}{children > 0 ? `, ${children} Child${children > 1 ? 'ren' : ''}` : ''}</span>
+                <span className={styles.value}>{adults} Adult{adults > 1 ? 's' : ''}{babies > 0 ? `, ${babies} baby/babies` : ''}</span>
               </div>
 
               <div className={styles.summaryRow}>

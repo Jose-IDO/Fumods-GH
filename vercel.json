@@ -5,6 +5,7 @@
       "includeFiles": "server/dist/**"
     }
   },
+  "crons": [{ "path": "/api/bookings/expire", "schedule": "0 2 * * *" }],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api" },
     { "source": "/(.*)", "destination": "/index.html" }

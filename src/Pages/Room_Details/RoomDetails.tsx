@@ -154,7 +154,7 @@ const RoomDetails: React.FC = () => {
           name: r.roomName,
           image: uploadedImages[0] || '',
           price: Number(r.price) || 0,
-          adults: r.maxGuests ?? 2,
+          adults: 2,
           kids: 0,
           bedType: r.bedType || 'Queen Bed',
           numberOfBeds: r.numberOfBeds || 1,
@@ -305,6 +305,7 @@ const RoomDetails: React.FC = () => {
       hotelName: "Fumods Guesthouse",
       roomId: room.id || id,
       roomType: room.name,
+      bedType: searchParams.get("roomType") === "twin" ? "twin" : "double",
       roomImage: room.image,
       pricePerNight: activeDeal ? activeDeal.discountedPrice : room.price,
       checkIn,
@@ -410,7 +411,7 @@ const RoomDetails: React.FC = () => {
                   </span>
                   <div className={styles.detailContent}>
                     <span className={styles.detailLabel}>Max Guests</span>
-                    <span className={styles.detailValue}>{room.adults} Adults, {room.kids} Children</span>
+                    <span className={styles.detailValue}>2 adults and 1 baby</span>
                   </div>
                 </div>
                 <div className={styles.detailItem}>
@@ -424,7 +425,7 @@ const RoomDetails: React.FC = () => {
                   </span>
                   <div className={styles.detailContent}>
                     <span className={styles.detailLabel}>Bed Type</span>
-                    <span className={styles.detailValue}>{room.numberOfBeds} × {room.bedType}</span>
+                    <span className={styles.detailValue}>Double bed or two single beds</span>
                   </div>
                 </div>
               </div>

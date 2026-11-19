@@ -4,8 +4,20 @@ import { bookingRepository } from '../repositories/bookingRepository';
 import { roomRepository } from '../repositories/roomRepository';
 import { getIO } from "../utils/socket";
 import { notificationRepository } from "../repositories/notificationRepository";
+import { freeRooms, TOTAL_ROOMS } from '../utils/bookingRules';
 
 export const bookingController = {
+  publicAvailability: async (req: Request, res: Response) => {
+    try {
+      const data = await bookingRepository.availability(String(req.query.checkIn || ''), String(req.query.checkOut || ''));
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({ ok: true, data });
+    } catch (e: any) { res.status(400).json({ ok: false, error: e.message }); }
+  },
+  expire: async (_req: Request, res: Response) => {
+    try { res.json({ ok: true, expired: await bookingService.cancelExpiredPendings() }); }
+    catch { res.status(500).json({ ok: false, error: 'Expiry cleanup failed' }); }
+  },
   create: async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
@@ -91,6 +103,13 @@ export const bookingController = {
           status: b.status,
           createdAt: b.createdAt,
           paymentReference: b.paymentReference,
+          roomCount: b.roomCount,
+          roomSelections: b.roomSelections,
+          physicalRoomIds: b.physicalRoomIds,
+          babies: b.babies,
+          guests: b.guests,
+          expiresAt: b.expiresAt,
+          paymentStatus: b.paymentStatus,
         };
       }));
 
@@ -149,7 +168,11 @@ export const bookingController = {
 
   listAll: async (_req: Request, res: Response) => {
     try {
-      const bookings = await bookingService.listAll();
+      await bookingService.cancelExpiredPendings();
+      const bookings = (await bookingService.listAll()).map(b => ({ ...b,
+        guestName: b.guestDetails ? `${b.guestDetails.firstName || ''} ${b.guestDetails.lastName || ''}`.trim() : b.userId,
+        guestEmail: b.guestDetails?.email,
+      }));
       res.json({ ok: true, data: bookings });
     } catch (e: any) {
       res.status(400).json({ ok: false, error: e.message });
@@ -203,47 +226,15 @@ export const bookingController = {
       const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
       const rooms = await roomRepository.findAll('active');
-      const roomUnits: Record<string, number> = {};
-      rooms.forEach(r => { roomUnits[r.id] = r.units?.length || 0; });
-
       const bookings = await bookingRepository.findInRange(start, end);
-
-      const dates: string[] = [];
-      for (let d = new Date(start); d <= new Date(end); d.setDate(d.getDate() + 1)) {
-        dates.push(fmt(d));
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || !Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || end < start || Date.parse(end) - Date.parse(start) > 366 * 86400000) throw new Error('Choose a date range of up to one year');
+      const result = rooms.map(r => ({ roomId: r.id, roomName: r.roomName, roomType: r.roomType, totalUnits: TOTAL_ROOMS, dates: {} as Record<string, 'available'|'booked'> }));
+      for (let day = new Date(start + 'T00:00:00Z'); day <= new Date(end + 'T00:00:00Z'); day.setUTCDate(day.getUTCDate() + 1)) {
+        const date = day.toISOString().slice(0, 10);
+        const next = new Date(day.getTime() + 86400000).toISOString().slice(0, 10);
+        const available = freeRooms(bookings, date, next).length;
+        result.forEach(r => { r.dates[date] = available > 0 ? 'available' : 'booked'; });
       }
-
-      const result = rooms.map(r => ({
-        roomId: r.id,
-        roomName: r.roomName,
-        roomType: r.roomType,
-        totalUnits: roomUnits[r.id] || 0,
-        dates: {} as Record<string,'available'|'booked'>
-      }));
-
-      const byRoom: Record<string, typeof result[number]> = Object.fromEntries(result.map(r => [r.roomId, r]));
-      dates.forEach(date => result.forEach(r => { r.dates[date]='available'; }));
-
-      const occ: Record<string, Record<string,number>> = {};
-      bookings.forEach(b => {
-        if(!occ[b.roomId]) occ[b.roomId]={};
-        const ci = new Date(b.checkIn);
-        const co = new Date(b.checkOut);
-        for(let d=new Date(ci); d<co; d.setDate(d.getDate()+1)){
-          const day = fmt(d);
-          if(day<dates[0] || day>dates[dates.length-1]) continue;
-          occ[b.roomId][day] = (occ[b.roomId][day]||0) + (b.roomCount||1);
-        }
-      });
-
-      Object.entries(occ).forEach(([roomId,map])=>{
-        const total = roomUnits[roomId]||0;
-        const target = byRoom[roomId];
-        if(!target) return;
-        Object.entries(map).forEach(([day,count])=>{
-          if(total>0 && count>=total) target.dates[day]='booked';
-        });
-      });
 
       return res.json({ ok: true, data: result, range: { start, end } });
     } catch(e: any) {
@@ -262,7 +253,7 @@ export const bookingController = {
       const roomId = (req.query.roomId as string) || undefined;
 
       const bookings = await bookingRepository.findInRange(start, end);
-      const filtered = roomId ? bookings.filter(b => b.roomId===roomId) : bookings;
+      const filtered = bookings.map(b => ({ roomId: b.roomId, checkIn: b.checkIn, checkOut: b.checkOut, status: b.status, roomCount: b.roomCount }));
 
       return res.json({ ok:true, data:filtered, range:{start,end}, filter:{roomId} });
     } catch(e:any){

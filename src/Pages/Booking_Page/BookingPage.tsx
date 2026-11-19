@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { LoggedInNavbar } from "../../Components/LoggedInNavbar/LoggedInNavbar";
 import Button from "../../Components/Shared/Button";
 import Input from "../../Components/Shared/Input";
 import styles from "./BookingPage.module.css";
-import hotelImage from "../../assets/Santorini_4.jpg";   // ← Your image
 import { API_URL } from "../../config/api";
 
 interface Guest {
@@ -26,10 +25,9 @@ const BookingPage: React.FC = () => {
   const {
     roomId,
     hotelName = "Fumods Guesthouse",
-    roomType = "Luxury Deluxe Suite",
-    roomImage = hotelImage,
+    roomType = "Guest room",
+    roomImage = "",
     pricePerNight: initialPricePerNight = 1200,
-    maxGuests = 2,
   } = state || {};
 
   // --- Booking form state (dates and guests count) ---
@@ -46,19 +44,56 @@ const BookingPage: React.FC = () => {
     nextWeek.setDate(nextWeek.getDate() + 4);
     return nextWeek.toISOString().split('T')[0];
   });
-  const [guests, setGuests] = useState(state?.guests || state?.adults || 2);
-  const [roomCount, setRoomCount] = useState(1);
+  type RoomSelection = { bedType: 'double' | 'twin'; adults: number; babies: number };
+  const [roomSelections, setRoomSelections] = useState<RoomSelection[]>([{ bedType: state?.bedType === 'twin' ? 'twin' : 'double', adults: 2, babies: 0 }]);
+  const roomCount = roomSelections.length;
+  const guests = roomSelections.reduce((sum, r) => sum + r.adults, 0);
+  const babies = roomSelections.reduce((sum, r) => sum + r.babies, 0);
+  const [availability, setAvailability] = useState<number | null>(null);
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [catalogue, setCatalogue] = useState<any>(null);
+  const requestId = useRef(crypto.randomUUID());
+  const selectedRoomId = roomId || catalogue?.id;
+  const pricePerNight = catalogue ? Number(catalogue.price) : initialPricePerNight;
+  const photo = catalogue ? catalogue.images?.[0] || '' : roomImage;
+  const updateRoom = (index: number, change: Partial<RoomSelection>) => setRoomSelections(previous => previous.map((r, i) => i === index ? { ...r, ...change } : r));
+  const setRoomCount = (count: number) => setRoomSelections(previous => Array.from({ length: count }, (_, i) => previous[i] || { bedType: 'double', adults: 2, babies: 0 }));
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(roomId ? API_URL + '/rooms/' + roomId : API_URL + '/rooms', { signal: controller.signal })
+      .then(res => res.json()).then(result => { if (result.ok) setCatalogue(roomId ? result.data : result.data?.[0]); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [roomId]);
+
+  useEffect(() => {
+    requestId.current = crypto.randomUUID();
+  }, [checkIn, checkOut, selectedRoomId, roomSelections]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      setAvailabilityLoading(true);
+      try {
+        const res = await fetch(API_URL + '/bookings/availability?checkIn=' + encodeURIComponent(checkIn) + '&checkOut=' + encodeURIComponent(checkOut), { signal: controller.signal, cache: 'no-store' });
+        const result = await res.json();
+        if (!res.ok || !result.ok) throw new Error(result.error || 'Unable to check availability');
+        setAvailability(result.data.availableRooms);
+        setAvailabilityError('');
+      } catch (e) {
+        if (!controller.signal.aborted) { setAvailability(null); setAvailabilityError(e instanceof Error ? e.message : 'Unable to check availability'); }
+      } finally { if (!controller.signal.aborted) setAvailabilityLoading(false); }
+    };
+    void load();
+    const timer = window.setInterval(load, 30000);
+    window.addEventListener('focus', load);
+    return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', load); };
+  }, [checkIn, checkOut]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Auto-adjust guests if they exceed the new maximum when room count changes
-  useEffect(() => {
-    const maxAllowed = maxGuests * roomCount;
-    if (guests > maxAllowed) {
-      setGuests(maxAllowed);
-    }
-  }, [roomCount, maxGuests, guests]);
 
   // Calculate nights and total price
   const calculateNights = () => {
@@ -71,8 +106,7 @@ const BookingPage: React.FC = () => {
 
   const nights = calculateNights();
   const totalGuests = guests;
-  const maxAllowedGuests = maxGuests * roomCount;
-  const totalPrice = initialPricePerNight * nights * roomCount;
+  const totalPrice = pricePerNight * nights * roomCount;
 
   const subtotal = totalPrice;
   const grandTotal = subtotal;
@@ -116,21 +150,19 @@ const BookingPage: React.FC = () => {
         return;
       }
 
-      if (!roomId) {
+      if (!selectedRoomId) {
         setError('Room information is missing. Please go back and select a room.');
         setIsSubmitting(false);
         return;
       }
 
-      if (totalGuests > maxAllowedGuests) {
-        setError(`Too many guests! This room allows up to ${maxGuests} guests per room. You selected ${roomCount} room${roomCount > 1 ? 's' : ''}, so the maximum is ${maxAllowedGuests} guests.`);
-        setIsSubmitting(false);
-        return;
-      }
+      if (availability === null || roomCount > availability) throw new Error('Please select available dates and room count.');
 
       // Create booking payload
       const bookingPayload = {
-        roomId,
+        roomId: selectedRoomId,
+        requestId: requestId.current,
+        roomSelections,
         checkIn,
         checkOut,
         guests: totalGuests,
@@ -167,22 +199,20 @@ const BookingPage: React.FC = () => {
       const bookingData = result.data?.booking || result.booking || result.data || result;
       const paymentInfo = result.data?.payment || result.payment;
 
-      const subtotal = totalPrice;
-      const grandTotal = subtotal;
-
       const paymentData = {
         bookingId: bookingData.id,
         paymentReference: bookingData.paymentReference || paymentInfo?.reference,
         hotelName,
         roomType,
-        roomImage,
+        roomImage: photo,
         checkIn,
         checkOut,
         nights,
-        guests,
-        pricePerNight: initialPricePerNight,
-        totalPrice: grandTotal,
-        subtotal,
+        guests, adults: guests, babies, children: babies, roomCount, roomSelections,
+        pricePerNight,
+        totalPrice: bookingData.totalPrice,
+        subtotal: bookingData.totalPrice,
+        taxAmount: 0,
         guest,
         expiresAt: bookingData.expiresAt,
       };
@@ -203,7 +233,7 @@ const BookingPage: React.FC = () => {
         <div className={styles.container}>
           {/* LEFT: Hotel Info */}
           <aside className={styles.hotelInfo}>
-            <img src={roomImage} alt={hotelName} className={styles.hotelImg} />
+            {photo && <img src={photo} alt={hotelName} className={styles.hotelImg} />}
             <div className={styles.infoBlock}>
               <h2 className={styles.summaryTitle}>Booking Summary</h2>
               
@@ -229,7 +259,7 @@ const BookingPage: React.FC = () => {
 
               <div className={styles.summaryRow}>
                 <span className={styles.label}>Guests:</span>
-                <span className={styles.value}>{guests} Guest{guests > 1 ? 's' : ''}</span>
+                <span className={styles.value}>{guests} adult(s){babies ? ` and ${babies} baby/babies` : ''}</span>
               </div>
 
               <div className={styles.summaryRow}>
@@ -245,7 +275,7 @@ const BookingPage: React.FC = () => {
               <div className={styles.divider}></div>
 
               <div className={styles.priceRow}>
-                <span>R{initialPricePerNight.toLocaleString()} × {nights} night{nights > 1 ? 's' : ''}</span>
+                <span>R{pricePerNight.toLocaleString()} × {nights} night{nights > 1 ? 's' : ''}</span>
                 <span>R{subtotal.toLocaleString()}</span>
               </div>
 
@@ -286,39 +316,43 @@ const BookingPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Guests</label>
-                  <select
-                    value={guests}
-                    onChange={(e) => setGuests(Number(e.target.value))}
-                    className={styles.selectInput}
-                  >
-                    {Array.from({ length: maxAllowedGuests }, (_, i) => i + 1).map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                  <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                    Max {maxGuests} guest{maxGuests > 1 ? 's' : ''} per room
-                  </small>
-                </div>
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Number of rooms</label>
-                  <select
-                    value={roomCount}
-                    onChange={(e) => setRoomCount(Number(e.target.value))}
-                    className={styles.selectInput}
-                  >
-                    {[1,2,3,4,5].map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="room-count">Number of rooms</label>
+                <select id="room-count" value={roomCount} onChange={e => setRoomCount(Number(e.target.value))} className={styles.selectInput}>
+                  {[1,2,3,4,5].map(num => <option key={num} value={num} disabled={availability !== null && num > availability}>{num}</option>)}
+                </select>
+                <p role="status">{availabilityLoading ? 'Checking availability...' : availabilityError || (availability + ' of 5 rooms available for these dates.')}</p>
+                {availability !== null && roomCount > availability && <p role="alert">Please reduce the number of rooms or choose other dates.</p>}
               </div>
+              {roomSelections.map((selection, index) => <fieldset key={index} className={styles.guestCard}>
+                <legend>Room {index + 1}</legend>
+                <div className={styles.formGroup}>
+                  <label htmlFor={'bed-' + index} className={styles.formLabel}>Bed setup</label>
+                  <select id={'bed-' + index} value={selection.bedType} onChange={e => updateRoom(index, { bedType: e.target.value as 'double' | 'twin' })} className={styles.selectInput}>
+                    <option value="double">Double bed</option><option value="twin">Two single beds</option>
+                  </select>
+                </div>
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor={'adults-' + index} className={styles.formLabel}>Adults</label>
+                    <select id={'adults-' + index} value={selection.adults} onChange={e => updateRoom(index, { adults: Number(e.target.value) })} className={styles.selectInput}>
+                      <option value={1}>1 adult</option><option value={2}>2 adults</option>
+                    </select>
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label htmlFor={'babies-' + index} className={styles.formLabel}>Baby</label>
+                    <select id={'babies-' + index} value={selection.babies} onChange={e => updateRoom(index, { babies: Number(e.target.value) })} className={styles.selectInput}>
+                      <option value={0}>No baby</option><option value={1}>1 baby</option>
+                    </select>
+                  </div>
+                </div>
+                <small>Maximum 2 adults and 1 baby per room. Either bed setup is available in every room.</small>
+              </fieldset>)}
+              <p>Your rooms are held for 48 hours pending admin confirmation. Unconfirmed bookings expire automatically.</p>
 
               <div className={styles.priceBreakdown}>
                 <div className={styles.priceRow}>
-                  <span>R{initialPricePerNight.toLocaleString()} × {nights} night{nights > 1 ? 's' : ''} × {roomCount} room{roomCount > 1 ? 's' : ''}</span>
+                  <span>R{pricePerNight.toLocaleString()} × {nights} night{nights > 1 ? 's' : ''} × {roomCount} room{roomCount > 1 ? 's' : ''}</span>
                   <span>R{subtotal.toLocaleString()}</span>
                 </div>
                 <div className={styles.totalRow}>
@@ -407,7 +441,7 @@ const BookingPage: React.FC = () => {
               text={isSubmitting ? "Creating booking..." : "Continue to payment"} 
               onClick={handleContinue} 
               type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || availabilityLoading || availability === null || roomCount > availability || !selectedRoomId}
             />
           </section>
         </div>

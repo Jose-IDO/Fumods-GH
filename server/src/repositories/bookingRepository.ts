@@ -1,7 +1,12 @@
 import { firestore, admin } from '../config/firebaseAdmin';
-import { Booking } from '../types/booking.types';
+import { Booking, CreateBookingDTO } from '../types/booking.types';
+import { freeRooms, HOLD_MS, isBlocking, TOTAL_ROOMS, validateStay } from '../utils/bookingRules';
+import { createHash, randomUUID } from 'crypto';
 
 const bookingsCollection = firestore.collection('bookings');
+// Every reservation/status change reads and updates this shared document. This
+// serializes competing transactions even when no matching booking existed yet.
+const inventoryLock = firestore.collection('bookingInventory').doc('guesthouse');
 
 function documentToBooking(doc: admin.firestore.DocumentSnapshot): Booking | null {
   if (!doc.exists) return null;
@@ -14,85 +19,64 @@ function documentToBooking(doc: admin.firestore.DocumentSnapshot): Booking | nul
     checkOut: data.checkOut,
     guests: data.guests,
     totalPrice: Number(data.totalPrice),
-    status: data.status,
+    status: data.status === 'pending' && data.expiresAt && (data.expiresAt.toMillis ? data.expiresAt.toMillis() : Date.parse(data.expiresAt)) <= Date.now() ? 'expired' : data.status,
     paymentReference: data.paymentReference || undefined,
     expiresAt: data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate().toISOString() : new Date(data.expiresAt).toISOString()) : undefined,
     roomCount: data.roomCount ?? 1,
+    roomSelections: data.roomSelections,
+    physicalRoomIds: data.physicalRoomIds,
+    babies: data.babies || 0,
+    paymentStatus: data.paymentStatus || 'unpaid',
+    guestDetails: data.guestDetails,
     createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
     confirmationEmailSentAt: data.confirmationEmailSentAt?.toDate ? data.confirmationEmailSentAt.toDate().toISOString() : data.confirmationEmailSentAt,
   };
 }
 
 export class BookingRepository {
-  async countRoomUnits(roomId: string): Promise<number> {
-    const roomDoc = await firestore.collection('rooms').doc(roomId).get();
-    if (!roomDoc.exists) return 0;
-    const roomData = roomDoc.data() as any;
-    return Array.isArray(roomData?.units) ? roomData.units.length : 0;
-  }
-
-  async countOverlappingBookings(roomId: string, checkIn: string, checkOut: string): Promise<number> {
-    const snapshot = await bookingsCollection
-      .where('roomId', '==', roomId)
-      .where('status', 'in', ['pending', 'confirmed'])
-      .where('checkIn', '<', checkOut)
-      .get();
-
-    return snapshot.docs.reduce((count, doc) => {
-      const data = doc.data();
-      const existingCheckIn = new Date(data.checkIn);
-      const existingCheckOut = new Date(data.checkOut);
-      if (existingCheckIn < new Date(checkOut) && new Date(checkIn) < existingCheckOut) return count + 1;
-      return count;
-    }, 0);
-  }
-
-  async create(userId: string, roomId: string, checkIn: string, checkOut: string, guests: number, totalPrice: number, roomCount: number = 1): Promise<Booking> {
-    const now = admin.firestore.Timestamp.now();
-    const docRef = await bookingsCollection.add({
-      userId,
-      roomId,
-      checkIn,
-      checkOut,
-      guests,
-      totalPrice,
-      status: 'confirmed',
-      roomCount,
-      createdAt: now,
-      updatedAt: now,
+  async reserve(userId: string, dto: CreateBookingDTO): Promise<Booking> {
+    const key = dto.requestId ? createHash('sha256').update(userId + ':' + dto.requestId).digest('hex') : randomUUID();
+    const ref = bookingsCollection.doc(key);
+    await firestore.runTransaction(async tx => {
+      await tx.get(inventoryLock);
+      const existing = await tx.get(ref);
+      if (existing.exists) {
+        const previous = documentToBooking(existing)!;
+        if (previous.roomId !== dto.roomId || previous.checkIn !== dto.checkIn || previous.checkOut !== dto.checkOut || JSON.stringify(previous.roomSelections) !== JSON.stringify(dto.roomSelections)) throw new Error('This booking request was already used. Please start a new booking.');
+        return;
+      }
+      const roomDoc = await tx.get(firestore.collection('rooms').doc(dto.roomId));
+      const room = roomDoc.data();
+      if (!roomDoc.exists || room?.status !== 'active') throw new Error('Room not available');
+      const snapshot = await tx.get(bookingsCollection.where('status', 'in', ['pending', 'confirmed']));
+      const now = Date.now();
+      validateStay(dto.checkIn, dto.checkOut, now);
+      const active = snapshot.docs.map(documentToBooking).filter((b): b is Booking => !!b);
+      const available = freeRooms(active, dto.checkIn, dto.checkOut, now);
+      if (available.length < dto.roomCount) throw new Error(`Only ${available.length} room(s) available for those dates. Please change your dates or room count.`);
+      const nights = (Date.parse(dto.checkOut) - Date.parse(dto.checkIn)) / 86400000;
+      const price = Number(room?.price);
+      if (!Number.isFinite(price) || price <= 0) throw new Error('Room price is unavailable');
+      tx.create(ref, {
+        userId, roomId: dto.roomId, checkIn: dto.checkIn, checkOut: dto.checkOut,
+        guests: dto.roomSelections.reduce((sum, r) => sum + r.adults, 0),
+        babies: dto.roomSelections.reduce((sum, r) => sum + r.babies, 0),
+        roomCount: dto.roomCount, roomSelections: dto.roomSelections,
+        physicalRoomIds: available.slice(0, dto.roomCount), guestDetails: dto.guestDetails,
+        totalPrice: nights * price * dto.roomCount,
+        status: 'pending', paymentStatus: 'unpaid', paymentReference: 'bk_' + ref.id,
+        expiresAt: admin.firestore.Timestamp.fromMillis(now + HOLD_MS),
+        createdAt: admin.firestore.Timestamp.fromMillis(now), updatedAt: admin.firestore.Timestamp.fromMillis(now),
+      });
+      tx.set(inventoryLock, { revision: admin.firestore.FieldValue.increment(1) }, { merge: true });
     });
-    const snapshot = await docRef.get();
-    return documentToBooking(snapshot)!;
+    return (await this.findById(ref.id))!;
   }
 
-  async createPending(
-    userId: string,
-    roomId: string,
-    checkIn: string,
-    checkOut: string,
-    guests: number,
-    totalPrice: number,
-    paymentRef: string | null,
-    expiresAt: string,
-    roomCount: number = 1
-  ): Promise<Booking> {
-    const now = admin.firestore.Timestamp.now();
-    const docRef = await bookingsCollection.add({
-      userId,
-      roomId,
-      checkIn,
-      checkOut,
-      guests,
-      totalPrice,
-      status: 'pending',
-      paymentReference: paymentRef,
-      expiresAt: admin.firestore.Timestamp.fromDate(new Date(expiresAt)),
-      roomCount,
-      createdAt: now,
-      updatedAt: now,
-    });
-    const snapshot = await docRef.get();
-    return documentToBooking(snapshot)!;
+  async availability(checkIn: string, checkOut: string) {
+    validateStay(checkIn, checkOut);
+    const bookings = await this.findInRange(checkIn, checkOut);
+    return { totalRooms: TOTAL_ROOMS, availableRooms: freeRooms(bookings, checkIn, checkOut).length };
   }
 
   async findByUser(userId: string): Promise<Booking[]> {
@@ -103,68 +87,19 @@ export class BookingRepository {
     return snapshot.docs.map(documentToBooking).filter((b): b is Booking => b !== null);
   }
 
-  async findByUserFiltered(
-    userId: string,
-    options: {
-      status?: Array<'pending' | 'confirmed' | 'cancelled'>;
-      start?: string;
-      end?: string;
-      limit?: number;
-      offset?: number;
-    }
-  ): Promise<Booking[]> {
-    let query: admin.firestore.Query = bookingsCollection.where('userId', '==', userId);
-
-    if (options.status && options.status.length) {
-      query = query.where('status', 'in', options.status);
-    }
-
-    if (options.start) {
-      query = query.where('checkOut', '>', options.start);
-    }
-    if (options.end) {
-      query = query.where('checkIn', '<', options.end);
-    }
-
-    query = query.orderBy('createdAt', 'desc').limit(options.limit ?? 20);
-    const snapshot = await query.get();
-    let bookings = snapshot.docs.map(documentToBooking).filter((b): b is Booking => b !== null);
-
-    if (options.start) {
-      bookings = bookings.filter(b => new Date(b.checkOut) > new Date(options.start!));
-    }
-    if (options.end) {
-      bookings = bookings.filter(b => new Date(b.checkIn) < new Date(options.end!));
-    }
-
+  async findByUserFiltered(userId: string, options: { status?: Booking['status'][]; start?: string; end?: string; limit?: number; offset?: number }): Promise<Booking[]> {
+    const snapshot = await bookingsCollection.where('userId', '==', userId).get();
+    const bookings = snapshot.docs.map(documentToBooking).filter((b): b is Booking => !!b
+      && (!options.status?.length || options.status.includes(b.status))
+      && (!options.start || b.checkOut > options.start)
+      && (!options.end || b.checkIn < options.end))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const offset = options.offset ?? 0;
-    return offset > 0 ? bookings.slice(offset, offset + (options.limit ?? 20)) : bookings;
+    return bookings.slice(offset, offset + (options.limit ?? 20));
   }
 
-  async countByUserFiltered(
-    userId: string,
-    options: {
-      status?: Array<'pending' | 'confirmed' | 'cancelled'>;
-      start?: string;
-      end?: string;
-    }
-  ): Promise<number> {
-    let query: admin.firestore.Query = bookingsCollection.where('userId', '==', userId);
-
-    if (options.status && options.status.length) {
-      query = query.where('status', 'in', options.status);
-    }
-
-    if (options.start) {
-      query = query.where('checkOut', '>', options.start);
-    }
-    if (options.end) {
-      query = query.where('checkIn', '<', options.end);
-    }
-
-    const snapshot = await query.get();
-    const bookings = snapshot.docs.map(documentToBooking).filter((b): b is Booking => b !== null);
-    return bookings.length;
+  async countByUserFiltered(userId: string, options: { status?: Booking['status'][]; start?: string; end?: string }): Promise<number> {
+    return (await this.findByUserFiltered(userId, { ...options, limit: Number.MAX_SAFE_INTEGER })).length;
   }
 
   async findById(id: string): Promise<Booking | null> {
@@ -186,9 +121,17 @@ export class BookingRepository {
   }
 
   async updateStatus(id: string, status: 'pending'|'confirmed'|'cancelled'): Promise<Booking | null> {
-    await bookingsCollection.doc(id).update({
-      status,
-      updatedAt: admin.firestore.Timestamp.now(),
+    if (!['confirmed', 'cancelled'].includes(status)) throw new Error('Choose confirmed or cancelled');
+    const ref = bookingsCollection.doc(id);
+    await firestore.runTransaction(async tx => {
+      await tx.get(inventoryLock);
+      const doc = await tx.get(ref);
+      const booking = documentToBooking(doc);
+      if (!booking) throw new Error('Booking not found');
+      if (booking.status === status) return;
+      if (status === 'confirmed' && (booking.status !== 'pending' || !isBlocking(booking))) throw new Error('This booking is expired or cancelled. A new booking is required.');
+      tx.update(ref, { status, updatedAt: admin.firestore.Timestamp.now() });
+      tx.set(inventoryLock, { revision: admin.firestore.FieldValue.increment(1) }, { merge: true });
     });
     return this.findById(id);
   }
@@ -204,10 +147,8 @@ export class BookingRepository {
   async confirmByPaymentRef(paymentRef: string): Promise<Booking | null> {
     const booking = await this.findByPaymentReference(paymentRef);
     if (!booking) return null;
-    await bookingsCollection.doc(booking.id).update({
-      status: 'confirmed',
-      updatedAt: admin.firestore.Timestamp.now(),
-    });
+    // Payment never confirms, extends or resurrects a room reservation.
+    await bookingsCollection.doc(booking.id).update({ paymentStatus: 'paid', updatedAt: admin.firestore.Timestamp.now() });
     return this.findById(booking.id);
   }
 
@@ -218,45 +159,28 @@ export class BookingRepository {
   }
 
   async cancelExpiredPendings(nowIso: string): Promise<number> {
-    const snapshot = await bookingsCollection
-      .where('status', '==', 'pending')
-      .where('expiresAt', '<=', admin.firestore.Timestamp.fromDate(new Date(nowIso)))
-      .get();
-    if (snapshot.empty) return 0;
-
-    const batch = firestore.batch();
-    snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, {
-        status: 'cancelled',
-        updatedAt: admin.firestore.Timestamp.now(),
+    const snapshot = await bookingsCollection.where('status', '==', 'pending').limit(400).get();
+    let count = 0;
+    for (const doc of snapshot.docs) {
+      if (documentToBooking(doc)?.status !== 'expired') continue;
+      const changed = await firestore.runTransaction(async tx => {
+        await tx.get(inventoryLock);
+        const current = await tx.get(doc.ref);
+        const data = current.data();
+        const expiry = data?.expiresAt?.toMillis ? data.expiresAt.toMillis() : Date.parse(data?.expiresAt);
+        if (data?.status !== 'pending' || expiry > Date.parse(nowIso) || !Number.isFinite(expiry)) return;
+        tx.update(doc.ref, { status: 'expired', updatedAt: admin.firestore.Timestamp.now() });
+        tx.set(inventoryLock, { revision: admin.firestore.FieldValue.increment(1) }, { merge: true });
+        return true;
       });
-    });
-    await batch.commit();
-    return snapshot.size;
+      if (changed) count++;
+    }
+    return count;
   }
 
-  async findInRange(startDate: string, endDate: string): Promise<Array<{ roomId: string; checkIn: string; checkOut: string; status: string; roomCount: number }>> {
-    const snapshot = await bookingsCollection
-      .where('status', 'in', ['pending', 'confirmed'])
-      .where('checkIn', '<', endDate)
-      .get();
-
-    return snapshot.docs
-      .map(doc => {
-        const data = doc.data() as any;
-        return {
-          roomId: data.roomId,
-          checkIn: data.checkIn,
-          checkOut: data.checkOut,
-          status: data.status,
-          roomCount: data.roomCount ?? 1,
-        };
-      })
-      .filter((booking) => {
-        const ci = new Date(booking.checkIn);
-        const co = new Date(booking.checkOut);
-        return ci < new Date(endDate) && new Date(startDate) < co;
-      });
+  async findInRange(startDate: string, endDate: string): Promise<Booking[]> {
+    const snapshot = await bookingsCollection.where('checkIn', '<', endDate).get();
+    return snapshot.docs.map(documentToBooking).filter((b): b is Booking => !!b && isBlocking(b) && b.checkOut > startDate);
   }
 }
 

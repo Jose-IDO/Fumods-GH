@@ -4,7 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { ConfirmDialog } from "../../Components/Shared/ConfirmDialog";
 import { API_URL } from "../../config/api";
 
-type BookingStatus = "pending" | "confirmed" | "cancelled" | "checked-in";
+type BookingStatus = "pending" | "confirmed" | "cancelled" | "expired" | "checked-in";
 type Booking = {
   id: string;
   guest: string; // display name or userId fallback
@@ -12,9 +12,14 @@ type Booking = {
   checkIn: string;   // ISO
   checkOut: string;  // ISO
   status: BookingStatus;
+  expiresAt?: string;
+  paymentStatus?: string;
+  roomSelections?: Array<{ bedType: string; adults: number; babies: number }>;
+  physicalRoomIds?: number[];
 };
 
 const StatusBadge = ({ status }: { status: BookingStatus }) => {
+  if (status === "expired") return <span className={styles.statusCancelled}>Expired</span>;
   const className =
     status === "pending"
       ? styles.statusPending
@@ -78,10 +83,14 @@ const BookingTable = ({
               <tr key={b.id}>
                 <td>{b.id}</td>
                 <td>{b.guest}</td>
-                <td>{b.room}</td>
+                <td>{b.room}
+                  {b.roomSelections?.map((room, index) => <div key={index} style={{marginTop: 6, fontSize: 12}}>
+                    Room {b.physicalRoomIds?.[index] || index + 1}: {room.bedType === 'twin' ? 'Two single beds' : 'Double bed'}; {room.adults} adult(s){room.babies ? ', 1 baby' : ''}
+                  </div>)}
+                </td>
                 <td>{new Date(b.checkIn).toLocaleDateString()}</td>
                 <td>{new Date(b.checkOut).toLocaleDateString()}</td>
-                <td><StatusBadge status={b.status} /></td>
+                <td><StatusBadge status={b.status} /><div>Payment: {b.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}</div>{b.status === 'pending' && b.expiresAt && <small>Confirm before {new Date(b.expiresAt).toLocaleString()}</small>}</td>
                 <td>
                   {b.status === "pending" && (
                     <>
@@ -146,6 +155,7 @@ export const ManageBooking = () => {
         checkIn: b.checkIn || b.check_in,
         checkOut: b.checkOut || b.check_out,
         status: (b.status as BookingStatus) || "pending",
+        expiresAt: b.expiresAt, paymentStatus: b.paymentStatus, roomSelections: b.roomSelections, physicalRoomIds: b.physicalRoomIds,
       })) as Booking[];
       setBookings(list);
     } catch (e: any) {
@@ -287,7 +297,7 @@ export const ManageBooking = () => {
             <option value="">All statuses</option>
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="cancelled">Cancelled</option><option value="expired">Expired</option>
           </select>
         </div>
       </div>
@@ -322,8 +332,8 @@ export const ManageBooking = () => {
         onCheckin={handleCheckin}
       />
       <BookingTable
-        title="Cancelled Bookings"
-        data={filtered.filter((b) => b.status === "cancelled")}
+        title="Cancelled / Expired Bookings"
+        data={filtered.filter((b) => ["cancelled", "expired"].includes(b.status))}
         onApprove={handleApprove}
         onCancel={handleCancel}
         onView={handleView}

@@ -37,7 +37,7 @@ const HotelDetails: React.FC = () => {
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const selectedRoomType = searchParams.get("roomType") || "all";
+
   const { toggleFavorite, isFavorite } = useFavorites();
   const { isAuthenticated } = useAuth();
   const [favoritePrompt, setFavoritePrompt] = useState(false);
@@ -149,12 +149,12 @@ const HotelDetails: React.FC = () => {
             name: r.roomName,
             type: getRoomType(r),
             image: cloudinaryImages[0] || '',
-            adults: r.maxGuests ?? 2,
+            adults: 2,
             kids: 0,
             price: Number(r.price) || 0,
             rating: 4,
             amenities: Array.isArray(r.amenities) ? r.amenities : [],
-            totalUnits: Array.isArray(r.units) ? r.units.length : 1 // Count active units
+            totalUnits: 5 // Count active units
           };
         });
         setRoomsData(mapped);
@@ -180,11 +180,9 @@ const HotelDetails: React.FC = () => {
 
     const fetchBookedDates = async () => {
       try {
-        const res = await fetch(`${API_URL}/bookings/booked-dates?start=${checkIn}&end=${checkOut}`);
+        const res = await fetch(API_URL + '/bookings/availability?checkIn=' + checkIn + '&checkOut=' + checkOut);
         const json = await res.json();
-        if (res.ok && json.ok) {
-          setBookedDates(json.data);
-        }
+        if (res.ok && json.ok) setBookedDates(json.data.availableRooms === 0 ? [{roomId: '', checkIn, checkOut, roomCount: 5}] : []);
       } catch (e) {
         console.error('Failed to fetch booked dates:', e);
       }
@@ -200,39 +198,20 @@ const HotelDetails: React.FC = () => {
     const checkInParam = searchParams.get("checkIn");
     const checkOutParam = searchParams.get("checkOut");
     
-    return roomsData.filter(room => {
-      // Room Type filter
-      if (selectedRoomType !== "all" && room.type !== selectedRoomType) {
-        return false;
-      }
-
+    return roomsData.filter(() => {
       // Guest capacity filter (from search)
-      if (minGuests > 0 && room.adults < minGuests) {
+      if (minGuests > 0 && 10 < minGuests) {
         return false;
       }
 
       // Date availability filter - only apply if both dates are provided
       if (checkInParam && checkOutParam && bookedDates.length > 0) {
-        // Count how many rooms of this type are booked for the selected date range
-        const bookedUnitsForRoom = bookedDates
-          .filter(booking => booking.roomId === room.id)
-          .reduce((total, booking) => {
-            // Check if booking overlaps with search dates
-            // Overlap occurs if: (booking.checkIn < searchCheckOut) AND (searchCheckIn < booking.checkOut)
-            const overlaps = booking.checkIn < checkOutParam && checkInParam < booking.checkOut;
-            return overlaps ? total + booking.roomCount : total;
-          }, 0);
-
-        // If all units are booked, filter out this room
-        const totalUnits = room.totalUnits || 1;
-        if (bookedUnitsForRoom >= totalUnits) {
-          return false;
-        }
+        if (bookedDates.some(booking => booking.roomCount >= 5)) return false;
       }
 
       return true;
     });
-  }, [roomsData, selectedRoomType, searchParams, bookedDates]);
+  }, [roomsData, searchParams, bookedDates]);
 
   return (
     <>
@@ -312,7 +291,7 @@ const HotelDetails: React.FC = () => {
                       <STAR_SVG key={star} filled={star <= room.rating} />
                     ))}
                   </div>
-                  <p>{room.adults} guests</p>
+                  <p>Up to 2 adults and 1 baby � Double bed or two single beds</p>
                   <p className={styles.price}>Price per night: R {room.price.toLocaleString()}</p>
                 </div>
               </div>

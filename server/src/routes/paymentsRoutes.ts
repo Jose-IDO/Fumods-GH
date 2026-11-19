@@ -13,7 +13,7 @@ import { emailService } from '../services/emailService';
 const router = Router();
 
 async function sendBookingConfirmationEmail(booking: Awaited<ReturnType<typeof bookingService.confirmByPaymentRef>>) {
-  if (!booking || booking.confirmationEmailSentAt) return;
+  if (!booking || booking.status !== 'confirmed' || booking.confirmationEmailSentAt) return;
 
   try {
     const [user, room] = await Promise.all([
@@ -46,8 +46,9 @@ router.post('/paystack/start', authenticate, async (req, res) => {
 
     const booking = await bookingRepository.findById(bookingId);
     if (!booking) return res.status(404).json({ ok: false, error: 'Booking not found' });
+    if (booking.userId !== (req as any).user.id) return res.status(403).json({ ok: false, error: 'Access denied' });
     if (booking.status !== 'pending') return res.status(400).json({ ok: false, error: 'Booking is not pending' });
-    if (booking.expiresAt && new Date(booking.expiresAt) < new Date()) {
+    if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
       return res.status(400).json({ ok: false, error: 'Booking has expired' });
     }
 

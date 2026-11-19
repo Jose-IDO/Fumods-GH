@@ -1,4 +1,5 @@
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
+import { RoomSelection } from '../utils/bookingRules';
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'expired';
 
 export interface Booking {
   id: string;
@@ -12,11 +13,18 @@ export interface Booking {
   paymentReference?: string;
   expiresAt?: string;
   roomCount: number;
+  roomSelections?: RoomSelection[];
+  physicalRoomIds?: number[];
+  babies?: number;
+  paymentStatus?: 'unpaid' | 'paid';
+  guestDetails?: CreateBookingDTO['guestDetails'];
   createdAt: string;
   confirmationEmailSentAt?: string;
 }
 
 export interface CreateBookingDTO {
+  requestId?: string;
+  roomSelections: RoomSelection[];
   roomId: string;
   checkIn: string;  // ISO date (YYYY-MM-DD)
   checkOut: string; // ISO date (YYYY-MM-DD)
@@ -28,7 +36,7 @@ export interface CreateBookingDTO {
     email: string;
     country: string;
     phone: string;
-    adults: number;
-    children: number;
+    adults?: number;
+    children?: number;
   };
 }

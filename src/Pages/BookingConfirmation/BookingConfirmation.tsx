@@ -6,6 +6,10 @@ import { API_URL } from "../../config/api";
 
 interface BookingData {
   bookingId: string;
+  status: string;
+  paymentStatus?: string;
+  expiresAt?: string;
+  roomSelections?: Array<{bedType: string; adults: number; babies: number}>;
   hotelName: string;
   roomType: string;
   checkIn: string;
@@ -77,6 +81,7 @@ const BookingConfirmation: React.FC = () => {
           if (booking) {
             setBookingData({
               bookingId: booking.id || booking.bookingId,
+              status: booking.status, paymentStatus: booking.paymentStatus, expiresAt: booking.expiresAt, roomSelections: booking.roomSelections,
               hotelName: booking.hotelName || "Fumods Guesthouse",
               roomType: booking.roomType || booking.room_type || "Room",
               checkIn: booking.checkIn || booking.check_in,
@@ -99,6 +104,7 @@ const BookingConfirmation: React.FC = () => {
           // Use data from navigation state (direct navigation from payment page)
           setBookingData({
             bookingId: state.bookingId || "UNKNOWN",
+            status: state.status || "pending", paymentStatus: state.paymentStatus, expiresAt: state.expiresAt, roomSelections: state.roomSelections,
             hotelName: state.hotelName || "Fumods Guesthouse",
             roomType: state.roomType || "Luxury Suite",
             checkIn: state.checkIn,
@@ -152,6 +158,8 @@ const BookingConfirmation: React.FC = () => {
 ===========================================
 
 Booking ID: ${bookingData.bookingId}
+Booking status: ${bookingData.status}
+Payment status: ${bookingData.paymentStatus || "unpaid"}
 Date: ${new Date().toLocaleString()}
 
 -------------------------------------------
@@ -174,7 +182,7 @@ Country: ${bookingData.guest.country}
 -------------------------------------------
 PAYMENT INFORMATION
 -------------------------------------------
-Amount Paid: R${bookingData.totalPrice.toLocaleString()}
+Booking total: R${bookingData.totalPrice.toLocaleString()}
 Payment Method: ${bookingData.paymentMethod}
 ${bookingData.paymentReference ? `Payment Reference: ${bookingData.paymentReference}` : ''}
 
@@ -256,14 +264,17 @@ For questions, contact: support@deltahotel.com
               </div>
             </div>
 
-            <h1 className={styles.titleLarge}>Booking Confirmed</h1>
+            <h1 className={styles.titleLarge}>{bookingData.status === 'confirmed' ? 'Booking Confirmed' : bookingData.status === 'pending' ? 'Pending Admin Confirmation' : bookingData.status === 'expired' ? 'Booking Expired' : 'Booking Cancelled'}</h1>
             <p className={styles.bookingId}>
               ID# <span className={styles.bookingIdValue}>{bookingData.bookingId}</span>
             </p>
             <p className={styles.confirmationText}>
-              A confirmation email will be sent to {bookingData.guest.email} shortly.
+              {bookingData.status === 'pending' ? 'Your room reservation needs admin confirmation within 48 hours of booking.' : bookingData.status === 'confirmed' ? 'Your booking has been confirmed by the admin.' : 'These rooms are no longer reserved. Please make a new booking if you wish to stay.'}
+              {bookingData.status === 'pending' && bookingData.expiresAt && <span> Deadline: {new Date(bookingData.expiresAt).toLocaleString()}.</span>}
+              <span> Payment: {bookingData.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}.</span>
             </p>
 
+            <div>{bookingData.roomSelections?.map((r, i) => <p key={i}>Room {i + 1}: {r.bedType === 'twin' ? 'Two single beds' : 'Double bed'}; {r.adults} adult(s){r.babies ? ' and 1 baby' : ''}</p>)}</div>
             <div className={styles.actions}>
               <button
                 className={styles.downloadBtn}
