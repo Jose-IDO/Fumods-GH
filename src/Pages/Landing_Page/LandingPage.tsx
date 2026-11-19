@@ -5,18 +5,18 @@ import DealsSection from '../../Components/DealSection/DealSection'
 import LandingSections from "../../Components/LandingSections/LandingSections"
 import PopiaOverlay from '../../Components/Popia/PopiaOverlay'
 import { usePopia } from '../../contexts/PopiaContext'
-import santorini1 from '../../assets/Santorini_1.jpeg'
-import santorini2 from '../../assets/Santorini_2.jpg'
-import santorini3 from '../../assets/Santorini_3.jpg'
-import santorini4 from '../../assets/Santorini_4.jpg'
 import coffeecup from '../../assets/coffee_cup.png'
 import wifi from '../../assets/wifi-signal.png'
 // import blackheart from '../../assets/heart-black.png'
 
+const images = Object.values(import.meta.glob<string>(
+  '../../assets/guest-house/*.{png,jpg,jpeg,webp}',
+  { eager: true, import: 'default' },
+))
+
 export const LandingPage = () => {
   const [currentImage, setCurrentImage] = useState(0)
   const { isAccepted } = usePopia()
-  const images = [santorini1, santorini2, santorini3, santorini4]
 
   const nextImage = () => {
     if (!isAccepted) return
