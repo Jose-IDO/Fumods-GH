@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { roomController } from '../controllers/roomController';
 import { authenticate, requireRole } from '../middleware/auth';
 import { upload } from '../config/upload';
+import { roomImageController } from '../controllers/roomImageController';
 
 const router = Router();
 router.use(authenticate, requireRole(['super_admin', 'hotel_manager']));
@@ -17,6 +18,8 @@ router.patch('/:id/restore', roomController.restoreRoom.bind(roomController));
 router.delete('/:id', roomController.deleteRoom.bind(roomController));
 
 // Image upload routes
+router.post('/:id/images/sign', roomImageController.sign);
+router.post('/:id/images/complete', roomImageController.complete);
 router.post('/:id/images', upload.array('images', 10), roomController.uploadRoomImages.bind(roomController));
 router.delete('/:id/images', roomController.deleteRoomImage.bind(roomController));
 

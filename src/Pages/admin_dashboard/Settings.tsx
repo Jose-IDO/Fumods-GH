@@ -3,18 +3,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import styles from './Settings.module.css';
 import { API_URL } from '../../config/api';
 
-const DEFAULT_FAQS = [
-  { question: 'What time is check-in and check-out?', answer: 'Check-in starts at 2:00 PM and check-out is before 10:00 AM.' },
-  { question: 'Is the swimming pool heated?', answer: 'The pool is heated in winter when temperatures are low.' },
-  { question: 'Is parking available?', answer: 'Yes, secure on-site parking is available for guests.' },
-  { question: 'Is breakfast included in the price?', answer: 'Please confirm breakfast availability when making your booking.' },
-  { question: 'Do you offer airport shuttle service?', answer: 'Please contact us in advance to arrange transport.' },
-  { question: 'Are pets allowed at the hotel?', answer: 'Registered service animals are welcome; please contact us about other pets.' },
-  { question: 'Is WiFi available throughout the hotel?', answer: 'Yes, complimentary WiFi is available for guests.' },
-  { question: 'Do you offer room service?', answer: 'Please contact reception for available guest services.' },
-  { question: 'Can I cancel or modify my reservation?', answer: 'Please contact us as early as possible for assistance with changes.' },
-];
-
 export const Settings: React.FC = () => {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -72,7 +60,7 @@ export const Settings: React.FC = () => {
         checkOutTime: s.checkOutTime || '11:00',
         currency: s.currency || 'ZAR',
         termsAndConditions: s.termsAndConditions || '',
-        faqs: Array.isArray(s.faqs) ? s.faqs : DEFAULT_FAQS,
+        faqs: Array.isArray(s.faqs) ? s.faqs : [],
       });
     } catch (e: any) {
       setError(e.message || 'Failed to load settings');

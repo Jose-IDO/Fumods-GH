@@ -114,9 +114,13 @@ class RoomRepository {
   }
 
   async addImages(roomId: string, imagePaths: string[]): Promise<Room | null> {
-    await roomsCollection.doc(roomId).update({
-      images: admin.firestore.FieldValue.arrayUnion(...imagePaths),
-      updatedAt: admin.firestore.Timestamp.now(),
+    const ref = roomsCollection.doc(roomId);
+    await firestore.runTransaction(async transaction => {
+      const doc = await transaction.get(ref);
+      if (!doc.exists) throw new Error('Room not found');
+      const images = [...new Set([...(doc.data()?.images || []), ...imagePaths])];
+      if (images.length > 20) throw new Error('Room can have maximum 20 images');
+      transaction.update(ref, { images, updatedAt: admin.firestore.Timestamp.now() });
     });
     return this.findById(roomId);
   }

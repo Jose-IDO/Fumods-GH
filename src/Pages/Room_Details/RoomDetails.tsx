@@ -13,11 +13,6 @@ import {
 } from "lucide-react";
 
 // Room images
-import room1 from "../../assets/room1.jpg";
-import room2 from "../../assets/room1B.jpg";
-import room3 from "../../assets/room1c.jpg";
-import room4 from "../../assets/room1d.jpg";
-import room5 from "../../assets/room1E.jpg";
 
 // Types
 type ApiRoom = {
@@ -107,16 +102,6 @@ const RoomDetails: React.FC = () => {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Helper: pick image
-  const pickImage = (type?: string, name?: string) => {
-    const t = (type || name || '').toLowerCase();
-    if (t.includes('presidential') || t.includes('suite')) return room5;
-    if (t.includes('family')) return room4;
-    if (t.includes('superior')) return room3;
-    if (t.includes('double')) return room2;
-    return room1;
-  };
-
   // Helper: amenity icons
   const getAmenityIcon = (amenity: string) => {
     const a = amenity.toLowerCase();
@@ -163,11 +148,11 @@ const RoomDetails: React.FC = () => {
         const r = json.data as ApiRoom;
         const uploadedImages = Array.isArray(r.images) && r.images.length > 0
           ? r.images
-          : [pickImage(r.roomType, r.roomName)];
+          : [];
         const mapped: UiRoom = {
           id: r.id,
           name: r.roomName,
-          image: uploadedImages[0],
+          image: uploadedImages[0] || '',
           price: Number(r.price) || 0,
           adults: r.maxGuests ?? 2,
           kids: 0,
@@ -346,8 +331,8 @@ const RoomDetails: React.FC = () => {
           <>
             {/* Gallery */}
             <div className={styles.gallery}>
-              <div className={styles.mainImage} onClick={() => setSelectedImage(room.image)}>
-                <img src={room.image} alt={room.name} />
+              <div className={styles.mainImage} onClick={() => { if (room.image) setSelectedImage(room.image); }}>
+                <>{room.image ? <img src={room.image} alt={room.name} /> : <span>No room images uploaded</span>}</>
               </div>
               <div className={styles.sideImages}>
                 {room.images.slice(1, 5).map((image, index) => (

@@ -258,6 +258,12 @@ export class RoomController {
         return;
       }
 
+      const room = await roomRepository.findById(id);
+      if (!room?.images?.includes(imageUrl)) {
+        res.status(404).json({ ok: false, error: 'Room image not found' });
+        return;
+      }
+
       // Remove image URL from the room
       const updatedRoom = await roomRepository.removeImage(id, imageUrl);
 
@@ -268,9 +274,9 @@ export class RoomController {
 
       // Optionally delete from Cloudinary (extract public_id from URL)
       try {
-        const urlParts = imageUrl.split('/');
-        const filename = urlParts[urlParts.length - 1];
-        const publicId = `rooms/${filename.split('.')[0]}`;
+        const imagePath = new URL(imageUrl).pathname.split('/upload/')[1];
+        if (!imagePath) throw new Error('Invalid image storage URL');
+        const publicId = decodeURIComponent(imagePath).replace(/^v\d+\//, '').replace(/\.[^/.]+$/, '');
         await cloudinary.uploader.destroy(publicId);
         console.log(`Deleted image from Cloudinary: ${publicId}`);
       } catch (cloudinaryError) {

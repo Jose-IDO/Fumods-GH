@@ -7,6 +7,7 @@ import { useFavorites } from "../../contexts/FavoritesContext";
 import ShareModal from "../../Components/Shared/ShareModal";
 import shareIcon from "../../assets/share-1-svgrepo-com.svg";
 import { API_URL } from "../../config/api";
+import { HotelFaqs } from "../../Components/HotelFaqs";
 import { getRoomType } from "../../utils/roomTypes";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -24,11 +25,6 @@ const STAR_SVG = ({ filled }: { filled: boolean }) => (
 );
 
 // Import room images - matching RoomDetails page images
-import room1 from "../../assets/room1.jpg";
-import room2 from "../../assets/room1B.jpg";
-import room3 from "../../assets/room1c.jpg";
-import room4 from "../../assets/room1d.jpg";
-import room5 from "../../assets/room1E.jpg";
 
 // Import hotel images for gallery
 import hotelMain from "../../assets/guest-house/Modern Grey Home Entrance and Garden.png";
@@ -144,26 +140,15 @@ const HotelDetails: React.FC = () => {
           units?: Array<any>; // Add units array
         }>;
 
-        const pickImage = (type: string, name: string) => {
-          const t = (type || name || '').toLowerCase();
-          if (t.includes('presidential')) return room5;
-          if (t.includes('suite')) return room5;
-          if (t.includes('family')) return room4;
-          if (t.includes('superior')) return room3;
-          if (t.includes('double')) return room2;
-          return room1;
-        };
-
         const mapped = rooms.map(r => {
-          // Use Cloudinary images if available, otherwise fallback to hardcoded images
+          // Room photos must match the images saved by the administrator.
           const cloudinaryImages = Array.isArray(r.images) && r.images.length > 0 ? r.images : [];
-          const fallbackImage = pickImage(r.roomType, r.roomName);
           
           return {
             id: r.id,
             name: r.roomName,
             type: getRoomType(r),
-            image: cloudinaryImages.length > 0 ? cloudinaryImages[0] : fallbackImage,
+            image: cloudinaryImages[0] || '',
             adults: r.maxGuests ?? 2,
             kids: 0,
             price: Number(r.price) || 0,
@@ -290,7 +275,7 @@ const HotelDetails: React.FC = () => {
                 style={{ cursor: 'pointer' }}
               >
                 <div className={styles.roomImagePlaceholder}>
-                  <img src={room.image} alt={room.name} />
+                  <>{room.image ? <img src={room.image} alt={room.name} /> : <span>No room images uploaded</span>}</>
                   <div className={styles.roomActions}>
                     <button
                       className={styles.shareButton}
@@ -338,6 +323,8 @@ const HotelDetails: React.FC = () => {
             )}
           </div>
         </section>
+
+        <HotelFaqs />
 
         {/* ---------- LOCATION ---------- */}
         <section className={styles.locationSection}>

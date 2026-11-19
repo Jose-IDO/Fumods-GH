@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styles from './RoomImageUpload.module.css';
 import { API_URL } from '../../config/api';
+import { readJsonResponse } from '../../utils/readJsonResponse';
 
 interface Props {
   roomId: string;
@@ -31,8 +32,8 @@ export const RoomImageUpload: React.FC<Props> = ({ roomId, currentImages, onUplo
 
     // Validate file types and sizes
     for (let i = 0; i < files.length; i++) {
-      if (!files[i].type.startsWith('image/')) {
-        setError('Only image files are allowed');
+      if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(files[i].type)) {
+        setError('Only JPEG, PNG, WEBP and GIF images are allowed');
         return;
       }
       if (files[i].size > 10 * 1024 * 1024) {
@@ -41,52 +42,42 @@ export const RoomImageUpload: React.FC<Props> = ({ roomId, currentImages, onUplo
       }
     }
 
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append('images', files[i]);
-    }
-
+    const input = e.currentTarget;
+    const selectedFiles = Array.from(files);
+    let saved = 0;
     setUploading(true);
     setError('');
     setUploadProgress(0);
-
     try {
       const token = localStorage.getItem('hotel_token');
-      
-      // Simulate progress (Cloudinary uploads don't provide real-time progress easily)
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
-
-      const response = await fetch(`${API_URL}/admin/rooms/${roomId}/images`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
+      if (!token) throw new Error('Please sign in again before uploading images.');
+      for (const file of selectedFiles) {
+        const signed = await readJsonResponse(await fetch(`${API_URL}/admin/rooms/${roomId}/images/sign`, {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` },
+        }));
+        const { cloudName, apiKey, signature, params } = signed.data;
+        const form = new FormData();
+        form.append('file', file);
+        form.append('api_key', apiKey);
+        form.append('signature', signature);
+        for (const [key, value] of Object.entries(params)) form.append(key, String(value));
+        const uploaded = await readJsonResponse(await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, { method: 'POST', body: form }));
+        await readJsonResponse(await fetch(`${API_URL}/admin/rooms/${roomId}/images/complete`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ publicId: uploaded.public_id }),
+        }));
+        saved++;
+        setUploadProgress(Math.round(saved / selectedFiles.length * 100));
       }
-
-      // Reset input and refresh room data
-      e.target.value = '';
-      setTimeout(() => {
-        setUploadProgress(0);
-        onUploadSuccess();
-      }, 500);
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to upload images');
-      setUploadProgress(0);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upload images';
+      setError(saved ? `${saved} image(s) saved. ${message}` : message);
     } finally {
+      input.value = '';
       setUploading(false);
+      setUploadProgress(0);
+      if (saved) onUploadSuccess();
     }
   };
 
@@ -104,7 +95,7 @@ export const RoomImageUpload: React.FC<Props> = ({ roomId, currentImages, onUplo
         body: JSON.stringify({ imageUrl }),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(data.error || 'Delete failed');
@@ -176,7 +167,7 @@ export const RoomImageUpload: React.FC<Props> = ({ roomId, currentImages, onUplo
           <input
             type="file"
             multiple
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={handleFileSelect}
             disabled={uploading || currentImages.length >= 20}
             style={{ display: 'none' }}
