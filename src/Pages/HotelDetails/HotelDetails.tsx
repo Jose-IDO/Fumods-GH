@@ -7,6 +7,7 @@ import { useFavorites } from "../../contexts/FavoritesContext";
 import ShareModal from "../../Components/Shared/ShareModal";
 import shareIcon from "../../assets/share-1-svgrepo-com.svg";
 import { API_URL } from "../../config/api";
+import { getRoomType } from "../../utils/roomTypes";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Star rating component
@@ -30,10 +31,10 @@ import room4 from "../../assets/room1d.jpg";
 import room5 from "../../assets/room1E.jpg";
 
 // Import hotel images for gallery
-import hotelMain from "../../assets/Santorini_1.jpeg";
-import hotelImage1 from "../../assets/Santorini_2.jpg";
-import hotelImage2 from "../../assets/Santorini_3.jpg";
-import hotelImage3 from "../../assets/Santorini_4.jpg";
+import hotelMain from "../../assets/guest-house/Modern Grey Home Entrance and Garden.png";
+import hotelImage1 from "../../assets/guest-house/Warm Modern Hotel Bedroom.png";
+import hotelImage2 from "../../assets/guest-house/Modern Neutral Bathroom Interior.png";
+import hotelImage3 from "../../assets/guest-house/Modern Hotel Bedroom with Kitchenette.png";
 
 const HotelDetails: React.FC = () => {
   // const { id } = useParams<{ id: string }>();
@@ -41,6 +42,7 @@ const HotelDetails: React.FC = () => {
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const selectedRoomType = searchParams.get("roomType") || "all";
   const { toggleFavorite, isFavorite } = useFavorites();
   const { isAuthenticated } = useAuth();
   const [favoritePrompt, setFavoritePrompt] = useState(false);
@@ -51,11 +53,6 @@ const HotelDetails: React.FC = () => {
     roomId: null,
     roomName: "",
   });
-  const [selectedRoomType, setSelectedRoomType] = useState<string>("all");
-  const [selectedPriceRange, setSelectedPriceRange] = useState<string>("all");
-  const [selectedRating, setSelectedRating] = useState<string>("all");
-  const [amenitiesOpen, setAmenitiesOpen] = useState(false);
-  const [checkedAmenities, setCheckedAmenities] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [roomsData, setRoomsData] = useState<Array<{
     id: string;
@@ -100,15 +97,6 @@ const HotelDetails: React.FC = () => {
     const roomType = searchParams.get("roomType");
     const guests = searchParams.get("guests");
     
-    if (roomType) {
-      setSelectedRoomType(roomType);
-    }
-    
-    // If guests are specified, we could filter based on maxGuests
-    // For now, we'll just acknowledge them (could add to state if needed)
-    if (guests) {
-    }
-
     // Scroll to rooms section if coming from search
     if (roomType || guests) {
       setTimeout(() => {
@@ -151,28 +139,6 @@ const HotelDetails: React.FC = () => {
     }
   };
 
-  const handleAmenityToggle = (amenity: string) => {
-    setCheckedAmenities(prev => {
-      if (prev.includes(amenity)) {
-        return prev.filter(a => a !== amenity);
-      } else {
-        return [...prev, amenity];
-      }
-    });
-  };
-
-  const clearAllFilters = () => {
-    setSelectedRoomType("all");
-    setSelectedPriceRange("all");
-    setSelectedRating("all");
-    setCheckedAmenities([]);
-  };
-
-  const hasActiveFilters = selectedRoomType !== "all" || 
-                          selectedPriceRange !== "all" || 
-                          selectedRating !== "all" || 
-                          checkedAmenities.length > 0;
-
   // Hotel data from API or defaults
   const hotelData = {
     name: "Fumods Guesthouse",
@@ -211,6 +177,8 @@ const HotelDetails: React.FC = () => {
           id: string;
           roomName: string;
           roomType: string;
+          bedType?: string;
+          numberOfBeds?: number;
           price: number;
           maxGuests: number;
           amenities: string[];
@@ -236,7 +204,7 @@ const HotelDetails: React.FC = () => {
           return {
             id: r.id,
             name: r.roomName,
-            type: r.roomType,
+            type: getRoomType(r),
             image: cloudinaryImages.length > 0 ? cloudinaryImages[0] : fallbackImage,
             adults: r.maxGuests ?? 2,
             kids: 0,
@@ -282,38 +250,6 @@ const HotelDetails: React.FC = () => {
     fetchBookedDates();
   }, [searchParams]);
 
-  // List of all amenities - dynamically extracted from rooms
-  const allAmenities = useMemo(() => {
-    const amenitySet = new Set<string>();
-    roomsData.forEach(room => {
-      room.amenities.forEach(a => amenitySet.add(a));
-    });
-    return Array.from(amenitySet).sort();
-  }, [roomsData]);
-
-  // Extract unique room types from fetched data
-  const uniqueRoomTypes = useMemo(() => {
-    const types = new Set(roomsData.map(r => r.type).filter(Boolean));
-    return Array.from(types).sort();
-  }, [roomsData]);
-
-  // Extract price ranges dynamically
-  const priceRanges = useMemo(() => {
-    if (roomsData.length === 0) return [];
-    const prices = roomsData.map(r => r.price).sort((a, b) => a - b);
-    const min = prices[0];
-    const max = prices[prices.length - 1];
-    
-    // Create ranges
-    if (max <= 1500) return [{ label: `R${min} - R${max}`, value: `${min}-${max}` }];
-    
-    const ranges = [];
-    if (min < 1500) ranges.push({ label: 'R0 - R1500', value: '0-1500' });
-    if (max > 1500 && min < 2000) ranges.push({ label: 'R1501 - R2000', value: '1501-2000' });
-    if (max > 2000) ranges.push({ label: 'R2001+', value: '2001-99999' });
-    return ranges;
-  }, [roomsData]);
-
   // Filter rooms based on selected criteria
   const filteredRooms = useMemo(() => {
     const guestsParam = searchParams.get("guests");
@@ -351,34 +287,9 @@ const HotelDetails: React.FC = () => {
         }
       }
 
-      // Price Range filter
-      if (selectedPriceRange !== "all") {
-        const [min, max] = selectedPriceRange.split("-").map(Number);
-        if (max) {
-          if (room.price < min || room.price > max) return false;
-        } else {
-          if (room.price < min) return false;
-        }
-      }
-
-      // Rating filter
-      if (selectedRating !== "all" && room.rating !== Number(selectedRating)) {
-        return false;
-      }
-
-      // Amenities filter - room must have ALL checked amenities
-      if (checkedAmenities.length > 0) {
-        const hasAllCheckedAmenities = checkedAmenities.every(amenity => 
-          room.amenities.includes(amenity)
-        );
-        if (!hasAllCheckedAmenities) {
-          return false;
-        }
-      }
-
       return true;
     });
-  }, [roomsData, selectedRoomType, selectedPriceRange, selectedRating, checkedAmenities, searchParams, bookedDates]);
+  }, [roomsData, selectedRoomType, searchParams, bookedDates]);
 
   // FAQ data - dynamically including check-in/check-out times from settings
   const defaultFaqData = [
@@ -441,88 +352,6 @@ const HotelDetails: React.FC = () => {
     <>
       <LoggedInNavbar />
       <div className={styles.detailsPage}>
-        {/* ---------- FILTERS SECTION ---------- */}
-        <div className={styles.filterContainer}>
-          {/* New Amenities Filter */}
-          <div className={styles.newAmenitiesFilter}>
-            <button 
-              className={styles.amenitiesButton}
-              onClick={() => setAmenitiesOpen(!amenitiesOpen)}
-              type="button"
-            >
-              <span className={styles.amenitiesLabel}>Amenities</span>
-              {checkedAmenities.length > 0 && (
-                <span className={styles.amenitiesCount}>({checkedAmenities.length})</span>
-              )}
-              <span className={styles.dropdownArrow}>{amenitiesOpen ? '▲' : '▼'}</span>
-            </button>
-            
-            {amenitiesOpen && (
-              <div className={styles.amenitiesDropdownMenu}>
-                {allAmenities.length > 0 ? allAmenities.map((amenity) => (
-                  <label key={amenity} className={styles.amenityOption}>
-                    <input
-                      type="checkbox"
-                      checked={checkedAmenities.includes(amenity)}
-                      onChange={() => handleAmenityToggle(amenity)}
-                      className={styles.amenityCheckboxInput}
-                    />
-                    <span className={styles.amenityText}>{amenity}</span>
-                  </label>
-                )) : (
-                  <div className={styles.amenityOption}>No amenities available</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <select 
-            className={styles.filterSelect}
-            value={selectedRoomType}
-            onChange={(e) => setSelectedRoomType(e.target.value)}
-            disabled={roomsData.length === 0}
-          >
-            <option value="all">All Room Types</option>
-            {uniqueRoomTypes.map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-
-          <select 
-            className={styles.filterSelect}
-            value={selectedPriceRange}
-            onChange={(e) => setSelectedPriceRange(e.target.value)}
-            disabled={roomsData.length === 0}
-          >
-            <option value="all">All Prices</option>
-            {priceRanges.map((range) => (
-              <option key={range.value} value={range.value}>{range.label}</option>
-            ))}
-          </select>
-
-          <select 
-            className={styles.filterSelect}
-            value={selectedRating}
-            onChange={(e) => setSelectedRating(e.target.value)}
-            disabled={roomsData.length === 0}
-          >
-            <option value="all">All Ratings</option>
-            <option value="5">5 Stars</option>
-            <option value="4">4 Stars</option>
-            <option value="3">3 Stars</option>
-          </select>
-
-          {hasActiveFilters && (
-            <button 
-              className={styles.clearFiltersBtn}
-              onClick={clearAllFilters}
-              type="button"
-            >
-              Clear Filters
-            </button>
-          )}
-        </div>
-
         {/* ---------- HEADER SECTION ---------- */}
         <header className={styles.header}>
           <div className={styles.headerInfo}>

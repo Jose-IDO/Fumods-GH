@@ -1,38 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./SearchSection.module.css";
 import { usePopia } from "../../contexts/PopiaContext";
-import { API_URL } from "../../config/api";
+import { ROOM_TYPES } from "../../utils/roomTypes";
 
 const SearchSection: React.FC = () => {
   const navigate = useNavigate();
   const { isAccepted } = usePopia();
-  const [roomTypes, setRoomTypes] = useState<string[]>([]);
   const [selectedRoomType, setSelectedRoomType] = useState<string>("all");
   const [checkIn, setCheckIn] = useState<string>("");
   const [checkOut, setCheckOut] = useState<string>("");
   const [guests, setGuests] = useState<string>("");
-
-  // Fetch available room types from API
-  useEffect(() => {
-    const fetchRoomTypes = async () => {
-      try {
-        const res = await fetch(`${API_URL}/rooms`);
-        const json = await res.json();
-        if (res.ok && json.ok) {
-          const types = new Set<string>();
-          json.data.forEach((room: any) => {
-            if (room.roomType) types.add(room.roomType);
-          });
-          setRoomTypes(Array.from(types).sort());
-        }
-      } catch (e) {
-        console.error('Failed to fetch room types:', e);
-      }
-    };
-
-    fetchRoomTypes();
-  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,8 +45,8 @@ const SearchSection: React.FC = () => {
               disabled={!isAccepted}
             >
               <option value="all">All Room Types</option>
-              {roomTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
+              {ROOM_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>{type.label}</option>
               ))}
             </select>
           </div>
