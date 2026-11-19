@@ -45,7 +45,7 @@ export const LandingPage = () => {
             <div
               key={index}
               className={styles.slide}
-              style={{ backgroundImage: `url(${img})` }}
+              style={{ backgroundImage: `url("${img}")` }}
             />
           ))}
         </div>
