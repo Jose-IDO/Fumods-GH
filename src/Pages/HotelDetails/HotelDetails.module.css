@@ -295,8 +295,7 @@
 
 .roomImagePlaceholder {
   background: #e5e7eb;
-  aspect-ratio: 1 / 1;
-  height: auto;
+  height: 180px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -461,7 +460,7 @@
 
 .roomsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 360px));
   gap: 1.5rem;
 }
 
@@ -866,7 +865,7 @@
     padding: 0.75rem;
   }
 
-  .roomImage {
+  .roomImagePlaceholder {
     height: 150px;
   }
 
@@ -957,7 +956,7 @@
     padding: 0.6rem;
   }
 
-  .roomImage {
+  .roomImagePlaceholder {
     height: 130px;
   }
 
