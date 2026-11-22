@@ -66,11 +66,6 @@ export const LandingPage = () => {
         >
           &gt;
         </button>
-        <div className={styles.textContent}>
-          <div>Welcome to Fumods Guest House.</div>
-          <div>Where comfort meets elegance.</div>
-          <div>your journey truly, begins with us.</div>
-        </div>
       </div>
 
       <div className={styles.searchsection}> 

@@ -64,31 +64,6 @@
     flex-shrink: 0;
 }
 
-.textContent {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(8px);
-    padding: 40px 60px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.textContent div {
-    font-size: 24px;
-    margin: 10px 0;
-}
-
-.textContent div:first-child {
-    font-size: 32px;
-    font-weight: bold;
-    margin-bottom: 15px;
-}
-
 .section2{
 display: flex;
 justify-content: center; 
