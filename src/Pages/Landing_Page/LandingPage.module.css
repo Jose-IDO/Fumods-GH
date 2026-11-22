@@ -65,6 +65,8 @@
 }
 
 .section2{
+position: relative;
+top: -50px;
 display: flex;
 justify-content: center; 
 align-items: center; 
@@ -98,7 +100,7 @@ flex-direction: column;
 }
 
 .paragraph1{
-    height: 30px;
+    height: auto;
     width: 280px;
 }
 
