@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import styles from './LandingPage.module.css'
-import SearchSection from "../../Components/SearchSection/SearchSection"
 import DealsSection from '../../Components/DealSection/DealSection'
 import LandingSections from "../../Components/LandingSections/LandingSections"
 import PopiaOverlay from '../../Components/Popia/PopiaOverlay'
@@ -68,9 +67,6 @@ export const LandingPage = () => {
         </button>
       </div>
 
-      <div className={styles.searchsection}> 
-        <SearchSection />
-      </div>
       <DealsSection/>
       <div className = {styles.section2}>
         <div className = {styles.Head1}> why choose us? </div>

@@ -123,7 +123,6 @@ const BookingTable = ({
 
 export const ManageBooking = () => {
   const { token } = useAuth();
-  const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | BookingStatus>("");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
@@ -172,17 +171,8 @@ export const ManageBooking = () => {
   }, [token]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return bookings.filter((b) => {
-      const matchesQuery =
-        !q ||
-        b.id.toLowerCase().includes(q) ||
-        b.guest.toLowerCase().includes(q) ||
-        b.room.toLowerCase().includes(q);
-      const matchesStatus = !statusFilter || b.status === statusFilter;
-      return matchesQuery && matchesStatus;
-    });
-  }, [bookings, query, statusFilter]);
+    return bookings.filter(b => !statusFilter || b.status === statusFilter);
+  }, [bookings, statusFilter]);
 
   const pending = filtered.filter((b) => b.status === "pending");
   const confirmed = filtered.filter((b) => b.status === "confirmed");
@@ -282,13 +272,6 @@ export const ManageBooking = () => {
       <div className={styles.headerBar}>
         <h1 className={styles.title}>Manage Bookings</h1>
         <div className={styles.actionsRow}>
-          <input
-            type="search"
-            className={styles.searchInput}
-            placeholder="Search by ID, guest, room..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
           <select
             className={styles.filterSelect}
             value={statusFilter}

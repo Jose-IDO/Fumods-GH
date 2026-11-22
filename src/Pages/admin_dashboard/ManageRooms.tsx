@@ -15,7 +15,6 @@ export const ManageRooms: React.FC = () => {
   const [editingRoomImages, setEditingRoomImages] = useState<string[]>([]);
   const [editingUnits, setEditingUnits] = useState<any[]>([]);
   const [newAmenity, setNewAmenity] = useState('');
-  const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterBedType, setFilterBedType] = useState("all");
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
@@ -374,14 +373,8 @@ export const ManageRooms: React.FC = () => {
   const uniqueRoomTypes = Array.from(new Set(rooms.map(r => r.roomType)));
   const uniqueBedTypes = Array.from(new Set(rooms.map(r => r.bedType)));
 
-  // Filter rooms based on search and filters
+  // Filter rooms
   const filteredRooms = rooms.filter((room) => {
-    // Search filter
-    const matchesSearch = searchTerm === "" || 
-      room.roomName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      room.roomType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      room.id?.toLowerCase().includes(searchTerm.toLowerCase());
-
     // Room type filter
     const matchesType = filterType === "all" || room.roomType === filterType;
 
@@ -393,16 +386,11 @@ export const ManageRooms: React.FC = () => {
     const maxPrice = priceRange.max === "" ? Infinity : Number(priceRange.max);
     const matchesPrice = room.price >= minPrice && room.price <= maxPrice;
 
-    return matchesSearch && matchesType && matchesBedType && matchesPrice;
+    return matchesType && matchesBedType && matchesPrice;
   });
 
   // Filter archived rooms
-  const filteredArchivedRooms = archivedRooms.filter((room) => {
-    return searchTerm === "" || 
-      room.roomName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      room.roomType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      room.id?.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredArchivedRooms = archivedRooms;
 
   return (
     <div className={styles.container}>
@@ -634,16 +622,9 @@ export const ManageRooms: React.FC = () => {
         </div>
       )}
 
-      {/* Search and Filter Section */}
+      {/* Filter Section */}
       <section className={styles.filterSection}>
         <div className={styles.filterRow}>
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={styles.searchInput}
-          />
           
           <select 
             value={filterType} 
@@ -688,7 +669,6 @@ export const ManageRooms: React.FC = () => {
           <button 
             className={styles.clearFilters}
             onClick={() => {
-              setSearchTerm("");
               setFilterType("all");
               setFilterBedType("all");
               setPriceRange({ min: "", max: "" });

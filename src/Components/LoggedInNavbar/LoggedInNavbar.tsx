@@ -127,20 +127,6 @@ export const LoggedInNavbar = () => {
       </div>
 
 
-      <div className={styles.searchBar}>
-        <input 
-          type="text" 
-          placeholder="Search..." 
-          className={styles.searchInput}
-        />
-        <button className={styles.searchButton}>
-          <svg className={styles.searchIcon} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.35-4.35"></path>
-          </svg>
-        </button>
-      </div>
-
       <div className={styles.profileSection}>
         {isAuthenticated ? (
           <>

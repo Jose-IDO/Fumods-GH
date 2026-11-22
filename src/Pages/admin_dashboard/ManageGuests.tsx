@@ -30,7 +30,6 @@ type Guest = {
 };
 
 export const ManageGuests: React.FC = () => {
-  const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"" | GuestStatus>("");
   const [data, setData] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,18 +72,8 @@ export const ManageGuests: React.FC = () => {
   }, [API_URL, token]);
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
-    return data.filter(g => {
-      const matchesQ =
-        !q ||
-        g.name.toLowerCase().includes(q) ||
-        g.email.toLowerCase().includes(q) ||
-        g.id.toLowerCase().includes(q) ||
-        g.phone.toLowerCase().includes(q);
-      const matchesStatus = !status || g.status === status;
-      return matchesQ && matchesStatus;
-    });
-  }, [query, status, data]);
+    return data.filter(g => !status || g.status === status);
+  }, [status, data]);
 
   const toggleBlock = async (id: string) => {
     const user = data.find(g => g.id === id);
@@ -125,12 +114,6 @@ export const ManageGuests: React.FC = () => {
       <div className={styles.headerBar}>
         <h1 className={styles.title}>Manage Guests</h1>
         <div className={styles.actionsRow}>
-          <input
-            className={styles.searchInput}
-            placeholder="Search by name, email, phone, or ID..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
           <select
             className={styles.filterSelect}
             value={status}
