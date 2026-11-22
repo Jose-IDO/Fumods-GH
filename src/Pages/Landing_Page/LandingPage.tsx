@@ -6,6 +6,8 @@ import PopiaOverlay from '../../Components/Popia/PopiaOverlay'
 import { usePopia } from '../../contexts/PopiaContext'
 import coffeecup from '../../assets/coffee_cup.png'
 import wifi from '../../assets/wifi-signal.png'
+import neighbourhood from '../../assets/amenities/quiet-neighbourhood.svg'
+import localAmenities from '../../assets/amenities/shopping-and-hospital.svg'
 // import blackheart from '../../assets/heart-black.png'
 
 const images = Object.entries(import.meta.glob<string>(
@@ -68,24 +70,42 @@ export const LandingPage = () => {
       </div>
 
       <DealsSection/>
-      <div className = {styles.section2}>
-        <div className = {styles.Head1}> why choose us? </div>
+      <section className={styles.section2} aria-labelledby="why-choose-us">
+        <h2 id="why-choose-us" className={styles.Head1}>Why choose us?</h2>
         <div className = {styles.offerings}>
 
           <div className={styles.offerings1}>
-            <img src={coffeecup} alt={'coffee cup image'} style={{height:'150px', width:'150px'}}/>
-            <p className={styles.paragraph1}>Enjoy free freshly brewed coffee and a cozy atmosphere all day long. Whether you’re relaxing or working, our coffee shop is the perfect spot to recharge.</p>
+            <img src={coffeecup} alt="Coffee cup" loading="lazy" />
+            <h3>Platō Coffee nearby</h3>
+            <p className={styles.paragraph1}>Start your morning at Platō Coffee Garsfontein, at 649 Borzoi Street. Enjoy a coffee on the same street as Fumods before heading out to explore Pretoria East.</p>
+            <a className={styles.amenityLink} href="https://plato.coffee/" target="_blank" rel="noopener noreferrer">Discover Platō Coffee</a>
           </div>
 
           <div className={styles.offerings1}>
-            <img src={wifi} alt={'wifi icon image'} style={{height:'150px', width:'150px'}}/>
+            <img src={wifi} alt="Wi-Fi connection" loading="lazy" />
+            <h3>Stay connected</h3>
             <p className={styles.paragraph1}>Stay connected wherever you are in the hotel with our fast, free Wi-Fi. Stream, work, or chat without interruptions.</p>
           </div>
 
+          <div className={styles.offerings1}>
+            <img src={neighbourhood} alt="Illustration of a peaceful residential home, trees and a security shield" loading="lazy" />
+            <h3>A quiet, safe neighbourhood</h3>
+            <p className={styles.paragraph1}>Unwind in Garsfontein’s peaceful residential surroundings. Our quiet neighbourhood offers a welcoming base for business trips, family visits and a relaxing break in Pretoria.</p>
+          </div>
 
+          <div className={styles.offerings1}>
+            <img src={localAmenities} alt="Illustration of a shopping centre and hospital" loading="lazy" />
+            <h3>Shopping &amp; healthcare nearby</h3>
+            <p className={styles.paragraph1}>Visit Woodlands Boulevard or Menlyn Park for shopping and dining. Netcare Pretoria East Hospital is also in the area, making Fumods a convenient base for appointments or visiting loved ones.</p>
+            <div className={styles.amenityLinks}>
+              <a className={styles.amenityLink} href="https://www.woodlandsboulevard.co.za/" target="_blank" rel="noopener noreferrer">Woodlands</a>
+              <a className={styles.amenityLink} href="https://www.menlynpark.co.za/" target="_blank" rel="noopener noreferrer">Menlyn Park</a>
+              <a className={styles.amenityLink} href="https://www.netcare.co.za/netcare-facilities/netcare-pretoria-east-hospital/1000" target="_blank" rel="noopener noreferrer">Hospital</a>
+            </div>
+          </div>
         </div>
 
-      </div>
+      </section>
 
       {/* ---------- NEW SECTIONS: ADDRESS, EVENTS, FOOTER ---------- */}
       <LandingSections />
